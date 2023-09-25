@@ -37,6 +37,7 @@ class Passenger:
         self.travel_t = 0  # 车上经过的时间
         self.bus_wait_t = 0  # 在车上的等待时间（停站）
         self.station_wait_t = 0  # 在站点等待的时间
+        self.full_jour_t = 0  # 出行全程时间
 
     def get_up_station(self):
         """
@@ -78,6 +79,7 @@ class Passenger:
         self.move_t = self.arr_t - self.start_t + self.end_t - self.down_t
         self.travel_t = self.down_t - self.on_t
         self.station_wait_t = self.on_t - self.arr_t
+        self.full_jour_t = self.end_t - self.start_t
 
     def add_bus_wait(self, seconds: int):
         """中途停站时用以修改"""

@@ -2,7 +2,7 @@ class Bus:
 
     def __init__(self, cab_num: int, max_num_list: list, cab_id: list, bus_id: int):
         self.cab_num = cab_num  # 车厢数量
-        self.pass_num_list = [0 for _ in range(cab_num)]  # 乘客数量, list
+        # self.pass_num_list = [0 for _ in range(cab_num)]  # 乘客数量, list
         self.pass_list = [[] for _ in range(cab_num)]  # 储存乘客对象，list
         self.max_num_list = list(max_num_list)
         self.cab_id = cab_id  # 包含的 cab 编号
@@ -26,11 +26,6 @@ class Bus:
         """仅用于决策顺序排序使用"""
         loc_1, loc_2 = self.loc.split('@')
         return int(loc_1) + int(loc_2) / 10
-
-    @property
-    def pass_num(self):
-        """车上总乘客数量"""
-        return sum(self.pass_num_list)
 
     def is_to_stop(self, station):
         """当前车辆上有需要下车的乘客"""

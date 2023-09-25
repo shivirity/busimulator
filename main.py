@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 import pandas as pd
 
 from consts import *
@@ -52,6 +53,7 @@ class Sim:
         # 存储所有已发车的 bus 和已接入系统的乘客
         self.all_buses = {}
         self.all_passengers = {}
+        self.all_cabs = {}  # 记录所有cab行驶距离
 
         # 系统全局变量
         self.next_bus_id = 0
@@ -153,7 +155,7 @@ class Sim:
                             bus_pas_list = [i for j in cur_bus.pass_list for i in j]
                             stay_pas_list = [pas.pas_id for pas in bus_pas_list if pas.end_loc != int(loc_1)]
                             for pas in stay_pas_list:
-                                self.all_passengers[pas].bus_wait_t += self.stop_time
+                                self.all_passengers[pas].add_bus_wait(seconds=self.stop_time)
                             pas_list = [pas.pas_id for pas in bus_pas_list if pas.end_loc == int(loc_1)]
                             for pas in pas_list:
                                 self.all_passengers[pas].down_t = self.t
@@ -168,23 +170,39 @@ class Sim:
                             # 下一站
                             if int(loc_1) == self.line.max_station_num:
                                 cur_bus.state = 'end'
+                                for cab in cur_bus.cab_id:
+                                    self.all_cabs[cab]['end_t'] = self.t
                             else:
                                 cur_bus.is_waiting, cur_bus.to_stop, cur_bus.stop_count = False, False, 0
                                 cur_bus.loc, cur_bus.run_next = loc_1 + '@5', str(int(loc_1) + 1) + '@0'
                                 cur_bus.running = True
-                                cur_bus.time_count = int(self.line.dist_list[int(loc_1) - 1] / self.line.speed_list[
+                                cur_bus.time_count = int((self.line.dist_list[int(loc_1) - 1] - 50) / self.line.speed_list[
                                     int(loc_1) - 1]) + 1
+                                for cab in cur_bus.cab_id:
+                                    self.all_cabs[cab]['dist'] += self.line.dist_list[int(loc_1) - 1]  # 记录累计距离
+                                # record number of passengers
+                                for k in range(len(cur_bus.cab_id)):
+                                    self.all_cabs[cur_bus.cab_id[k]]['dep_time'].append(self.t)  # 出站时间记录
+                                    self.all_cabs[cur_bus.cab_id[k]]['pas_num'].append(len(cur_bus.pass_list[k]))
                         else:
                             pass
                     else:
                         assert cur_bus.running is True or cur_bus.loc.split('@')[0] == '1'
                         if int(loc_1) == self.line.max_station_num:
                             cur_bus.state = 'end'
+                            for cab in cur_bus.cab_id:
+                                self.all_cabs[cab]['end_t'] = self.t
                         else:
                             cur_bus.loc, cur_bus.run_next = loc_1 + '@5', str(int(loc_1) + 1) + '@0'
                             cur_bus.running = True
-                            cur_bus.time_count = self.line.dist_list[int(loc_1) - 1] / self.line.speed_list[
-                                int(loc_1) - 1]
+                            cur_bus.time_count = int((self.line.dist_list[int(loc_1) - 1] - 50) / self.line.speed_list[
+                                int(loc_1) - 1])
+                            for cab in cur_bus.cab_id:
+                                self.all_cabs[cab]['dist'] += self.line.dist_list[int(loc_1) - 1]  # 记录累计距离
+                            # record number of passengers
+                            for k in range(len(cur_bus.cab_id)):
+                                self.all_cabs[cur_bus.cab_id[k]]['dep_time'].append(self.t)
+                                self.all_cabs[cur_bus.cab_id[k]]['pas_num'].append(len(cur_bus.pass_list[k]))
 
     def get_dec_order(self):
         """决策顺序生成"""
@@ -202,6 +220,15 @@ class Sim:
         self.all_buses[cur_bus_id] = Bus(
             cab_num=dec, max_num_list=[cap for _ in range(dec)],
             cab_id=list(range(cur_cab_id, cur_cab_id + dec)), bus_id=cur_bus_id)
+        for cab_id in range(cur_cab_id, cur_cab_id + dec):
+            self.all_cabs[cab_id] = {
+                'dist': 0,
+                'start_t': self.t,
+                'end_t': None,
+                'arr_time': [],  # 入站时间
+                'dep_time': [],  # 出站时间
+                'pas_num': [],  # 乘客人数
+            }  # 记录行驶距离
         self.next_bus_id += 1
         self.next_cab_id += dec
         # ------------ end create new bus ------------
@@ -216,14 +243,53 @@ class Sim:
     def get_statistics(self):
         """获取系统表现统计数据"""
         # 乘客统计数据
-        avg_travel_t, avg_wait_t = 0, 0
+        avg_travel_t, avg_wait_t, full_t, avg_station_wait_t = 0, 0, 0, 0
         for pas in self.all_passengers.values():
             pas.get_statistics(loc_list=self.line.loc_list)
             avg_travel_t += pas.travel_t
             avg_wait_t += pas.bus_wait_t
+            full_t += pas.full_jour_t
+            avg_station_wait_t += pas.station_wait_t
         avg_travel_t /= len(self.all_passengers)
         avg_wait_t /= len(self.all_passengers)
-        print(avg_travel_t, avg_wait_t)
+        full_t /= len(self.all_passengers)
+        avg_station_wait_t /= len(self.all_passengers)
+
+        # 车辆出行数据
+        if self.sim_mode == 'baseline':
+            # 能耗
+            power_consump_speed = sum([dist['dist'] for dist in self.all_cabs.values()]) * CONSUMP_SPEED_OLD
+            power_consump_cond = sum([dist['dist'] for dist in self.all_cabs.values()]) * CONSUMP_CONDITION_OLD
+            # 乘客数量
+            avg_pas_num_list = [sum(cab['pas_num'])/len(cab['pas_num']) for cab in self.all_cabs.values()]
+            avg_pas_num = np.mean(avg_pas_num_list)
+            pas_num_list = [cab['pas_num'] for cab in self.all_cabs.values()]
+            max_pas_num = np.max(pas_num_list)
+            avg_pas_num_list_early = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
+                                      if 6 * 3600 <= cab['dep_time'][0] < 8 * 3600]
+            avg_pas_num_early = np.mean(avg_pas_num_list_early)
+            avg_pas_num_list_noon = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
+                                      if 10 * 3600 <= cab['dep_time'][0] < 12 * 3600]
+            avg_pas_num_noon = np.mean(avg_pas_num_list_noon)
+            avg_pas_num_list_late = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
+                                      if 16 * 3600 <= cab['dep_time'][0] < 18 * 3600]
+            avg_pas_num_late = np.mean(avg_pas_num_list_late)
+
+        return {
+            'avg_travel_t(on bus, s)': avg_travel_t,
+            'avg_travel_t(full, s)': full_t,
+            'avg_wait_t(s)': avg_wait_t,
+            'avg_station_wait_t(s)': avg_station_wait_t,
+            'power consumption(equal speed, kWh)': power_consump_speed,
+            'power consumption(condition, kWh)': power_consump_cond,
+            'driver wage(RMB, year)': 20 * DRIVER_WAGE_OLD,  # avg_travel_time / departure_duration = 20
+            'max_pas_num': max_pas_num,
+            'avg_pas_num(all day)': avg_pas_num,
+            'avg_pas_num(early)': avg_pas_num_early,
+            'avg_pas_num(noon)': avg_pas_num_noon,
+            'avg_pas_num(late)': avg_pas_num_late,
+            'carbon emission(g)': 0.31 * 0.23 * power_consump_cond
+        }
 
 
 if __name__ == '__main__':
@@ -232,4 +298,4 @@ if __name__ == '__main__':
 
     sim = Sim(**line_info, sim_mode='baseline')
     sim.run()
-    sim.get_statistics()
+    sim_result = sim.get_statistics()
