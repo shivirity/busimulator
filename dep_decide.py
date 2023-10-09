@@ -1,32 +1,40 @@
-from consts import LARGE_BUS, SMALL_CAB, SIM_END_T
+from consts import LARGE_BUS, SMALL_CAB, SIM_END_T, DEP_DURATION
 
 
 class dep_decider:
 
-    def __init__(self, sim_mode: str = 'single'):
-        assert sim_mode in ['baseline', 'single', 'fish_bone']
+    def __init__(self, sim_mode: str = 'single', dep_duration: list = None, dep_num: list = None):
+        assert sim_mode in ['baseline', 'single', 'multi']
         self.mode = sim_mode
         self.last_dep = None
+        self.dep_duration_list = list(dep_duration) if dep_duration is not None else None
+        self.dep_num_list = list(dep_num) if dep_num is not None else None
 
     def can_dep(self, cur_t: int):
         """判断是否发车"""
-        # todo
         if self.mode == 'baseline':
             if cur_t <= SIM_END_T:
-                return True if (cur_t - self.last_dep >= 10 * 60) else False
+                return True if (cur_t - self.last_dep >= DEP_DURATION) else False
             else:
                 return False
         elif self.mode == 'single':
-            pass
+            if cur_t <= SIM_END_T:
+                return True if (cur_t - self.last_dep >= self.dep_duration_list[int(cur_t/3600)]) else False
+            else:
+                return False
         else:
             pass
 
-    def decide(self):
-        """判断发车数量(num of cab)"""
-        # todo
+    def decide(self, cur_t: int):
+        """
+        判断发车数量(num of cab)
+
+        :param cur_t: 当前时间（s）
+        :return: 发车数量，车厢容量
+        """
         if self.mode == 'baseline':
             return 1, LARGE_BUS
         elif self.mode == 'single':
-            pass
+            return self.dep_num_list[int(cur_t/3600)], SMALL_CAB
         else:
             pass

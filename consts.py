@@ -12,7 +12,9 @@ MIN_STEP = 1
 
 # capacity of bus
 LARGE_BUS = 90  # (31/90)
+LARGE_BUS_SEAT = 31
 SMALL_CAB = 20  # (10/20)
+SMALL_CAB_SEAT = 10
 
 # enter & leave of station
 OLD_STOP_T_NORM = 9 + 15 + 9
@@ -30,3 +32,34 @@ CONSUMP_CONDITION_NEW = 39
 DRIVER_WAGE_OLD = 120000
 DRIVER_WAGE_NEW = 100000
 
+# departure duration
+DEP_DURATION = 10 * 60  # 10 * 60
+
+# ratio of max stop capacity to handle demand (mode='single')
+RATE_MAX_STOP = 0.9
+
+# max number of stations in the last part of the bus in separation decision (mode='single')
+MAX_SEP_STATIONS = 1  # 1 means only separate passengers who get off at next station/stop
+
+# travel distance fix between stations
+DIS_FIX = 50
+
+# separate-decision
+RATE_SEP = 0.3
+
+# comb and sep consts
+
+# ------- sep decision const ------
+MIN_SEP_PASS_NUM = 0  # 下车人数下限(in sep)
+# ------- setting const -------
+SEP_DURATION = 14  # sep的预期时间
+SEP_DIST = 155  # sep的预期距离
+
+# ------- comb decision const ------
+RATE_COMB_ROUTE = 0.5  # in [0, 1], 预期结合的距离间隔(in comb), 越大代表对距离越宽容
+RATE_FRONT_PASS = 0.3  # 分离时前车内n站内要下车的占比
+RATE_REAR_PASS = 0.5  # 分离时后车n站后要下车的占比
+COMB_FORE_STA = 2  # comb决策时预期向前的站点数
+# ------- setting const -------
+COMB_DURATION = 22  # comb的预期时间
+COMB_DIST = 183  # comb的预期距离

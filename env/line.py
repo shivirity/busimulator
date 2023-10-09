@@ -30,7 +30,7 @@ class Line:
         self.create_side_line()
 
         # consts
-        self.max_wait_t = 10 * 60
+        self.max_wait_t = 10 * 60  # 乘客站点最大等待时间（用于随机生成出发时间）
 
         # passenger pool
         self.passenger_pool = self.get_passenger_info()

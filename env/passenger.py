@@ -17,7 +17,7 @@ def get_distance(lat1, lon1, lat2, lon2):
 
 class Passenger:
 
-    def __init__(self, pas_id, start_pos, start_loc, arrive_time, end_pos, end_loc):
+    def __init__(self, pas_id: int, start_pos: tuple, start_loc: int, arrive_time: int, end_pos: tuple, end_loc: int):
         self.pas_id = pas_id  # 用户编号
         self.start_pos = start_pos  # 出发坐标
         self.start_loc = start_loc  # 出发站点
@@ -32,6 +32,7 @@ class Passenger:
         # record
         self.start_t = None  # 出发时刻
         self.end_t = None  # 结束时刻
+        self.on_bus = None
 
         self.move_t = 0  # 到达站点前或离开站点后移动的时间
         self.travel_t = 0  # 车上经过的时间
@@ -84,19 +85,3 @@ class Passenger:
     def add_bus_wait(self, seconds: int):
         """中途停站时用以修改"""
         self.bus_wait_t += seconds
-
-    def get_up_dist_and_time(self):
-        """
-        获取乘客到站距离和时间
-
-        :return:
-        """
-        # todo 获取到站距离和时间
-
-    def update_up_info(self):
-        """
-        更新到站前信息
-
-        :return:
-        """
-        # todo 更新到站信息
