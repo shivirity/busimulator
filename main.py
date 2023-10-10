@@ -645,6 +645,16 @@ class Sim:
             self.all_buses[key].to_stop = value
             self.all_buses[key].stop_count += self.stop_time if value is True else 0
 
+    def get_passenger_optimal(self):
+        """获取乘客时间理论值"""
+        pass_t_list = []
+        for pas in self.all_passengers.values():
+            start_loc, end_loc, sum_t = pas.start_loc, pas.end_loc, 0
+            for loc in range(start_loc, end_loc):
+                sum_t += int(self.line.dist_list[loc - 1] / self.line.speed_list[loc - 1]) + 1
+            pass_t_list.append(sum_t)
+        return sum(pass_t_list) / len(pass_t_list) / 60
+
     def get_statistics(self):
         """获取系统表现统计数据"""
         # 乘客统计数据
@@ -655,61 +665,63 @@ class Sim:
             avg_wait_t += pas.bus_wait_t
             full_t += pas.full_jour_t
             avg_station_wait_t += pas.station_wait_t
-        avg_travel_t /= len(self.all_passengers)
-        avg_wait_t /= len(self.all_passengers)
-        full_t /= len(self.all_passengers)
-        avg_station_wait_t /= len(self.all_passengers)
+        avg_travel_t /= (len(self.all_passengers) * 60)
+        avg_wait_t /= (len(self.all_passengers) * 60)
+        full_t /= (len(self.all_passengers) * 60)
+        avg_station_wait_t /= (len(self.all_passengers) * 60)
 
         # 车辆出行数据
         if self.sim_mode == 'baseline':
+            cap = LARGE_BUS
             # 能耗
             power_consump_speed = sum([cab['dist'] for cab in self.all_cabs.values()]) * CONSUMP_SPEED_OLD
             power_consump_cond = sum([cab['dist'] for cab in self.all_cabs.values()]) * CONSUMP_CONDITION_OLD
             # 乘客数量
             avg_pas_num_list = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()]
-            avg_pas_num = np.mean(avg_pas_num_list)
+            avg_pas_num = np.mean(avg_pas_num_list) / cap
             pas_num_list = [cab['pas_num'] for cab in self.all_cabs.values()]
-            max_pas_num = np.max(pas_num_list)
+            max_pas_num = np.max(pas_num_list) / cap
             avg_pas_num_list_early = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
                                       if 6 * 3600 <= cab['dep_time'][0] < 8 * 3600]
-            avg_pas_num_early = np.mean(avg_pas_num_list_early)
+            avg_pas_num_early = np.mean(avg_pas_num_list_early) / cap
             avg_pas_num_list_noon = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
                                      if 10 * 3600 <= cab['dep_time'][0] < 12 * 3600]
-            avg_pas_num_noon = np.mean(avg_pas_num_list_noon)
+            avg_pas_num_noon = np.mean(avg_pas_num_list_noon) / cap
             avg_pas_num_list_late = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
                                      if 16 * 3600 <= cab['dep_time'][0] < 18 * 3600]
-            avg_pas_num_late = np.mean(avg_pas_num_list_late)
+            avg_pas_num_late = np.mean(avg_pas_num_list_late) / cap
             driver_wage = 20 * DRIVER_WAGE_OLD
 
         elif self.sim_mode == 'single':
+            cap = SMALL_CAB
             power_consump_speed = sum([cab['dist'] for cab in self.all_cabs.values()]) * CONSUMP_SPEED_NEW
-            power_consump_cond = sum([cab['dist'] for cab in self.all_cabs.values()]) * CONSUMP_SPEED_NEW
-            max_pas_num = np.max([max(cab['pas_num']) for cab in self.all_cabs.values()])
+            power_consump_cond = sum([cab['dist'] for cab in self.all_cabs.values()]) * CONSUMP_CONDITION_NEW
+            max_pas_num = np.max([max(cab['pas_num']) for cab in self.all_cabs.values()]) / cap
             # max_pas_num = np.max(pas_num_array)
             avg_pas_num_array = np.array([sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()])
-            avg_pas_num = np.mean(avg_pas_num_array)
+            avg_pas_num = np.mean(avg_pas_num_array) / cap
             avg_pas_num_array_early = np.array(
                 [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
                  if 6 * 3600 <= cab['dep_time'][0] < 8 * 3600])
-            avg_pas_num_early = np.mean(avg_pas_num_array_early)
+            avg_pas_num_early = np.mean(avg_pas_num_array_early) / cap
             avg_pas_num_array_noon = np.array(
                 [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
                  if 10 * 3600 <= cab['dep_time'][0] < 12 * 3600])
-            avg_pas_num_noon = np.mean(avg_pas_num_array_noon)
+            avg_pas_num_noon = np.mean(avg_pas_num_array_noon) / cap
             avg_pas_num_array_late = np.array(
                 [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
                  if 16 * 3600 <= cab['dep_time'][0] < 18 * 3600])
-            avg_pas_num_late = np.mean(avg_pas_num_array_late)
+            avg_pas_num_late = np.mean(avg_pas_num_array_late) / cap
             driver_wage = 20 * 2 * DRIVER_WAGE_NEW
 
         return {
-            'avg_travel_t(on bus, s)': avg_travel_t,
-            'avg_travel_t(full, s)': full_t,
-            'avg_wait_t(s)': avg_wait_t,
-            'avg_station_wait_t(s)': avg_station_wait_t,
+            'avg_travel_t(on bus, min)': avg_travel_t,
+            'avg_travel_t(full, min)': full_t,
+            'avg_wait_t(min)': avg_wait_t,
+            'avg_station_wait_t(min)': avg_station_wait_t,
             'power consumption(equal speed, kWh)': power_consump_speed,
             'power consumption(condition, kWh)': power_consump_cond,
-            'driver wage(RMB, year)': driver_wage,  # avg_travel_time / departure_duration = 20
+            'driver wage(WRMB, year)': driver_wage / 10000,  # avg_travel_time / departure_duration = 20
             'max_pas_num': max_pas_num,
             'avg_pas_num(all day)': avg_pas_num,
             'avg_pas_num(early)': avg_pas_num_early,
@@ -726,3 +738,4 @@ if __name__ == '__main__':
     sim.run()
     sim_result = sim.get_statistics()
     print('runtime: {:.2f}s'.format((time.time()-start)))
+    print(f'optimal travel time on bus: {sim.get_passenger_optimal()} min')
