@@ -40,6 +40,9 @@ class Passenger:
         self.station_wait_t = 0  # 在站点等待的时间
         self.full_jour_t = 0  # 出行全程时间
 
+    def __repr__(self):
+        return f'Passenger_{self.pas_id}'
+
     def get_up_station(self):
         """
         获取乘客上车站

@@ -98,7 +98,7 @@ class Sim:
                 dep_dec, dep_cap = self.dep_decider.decide(cur_t=self.t)
                 self.update_dep(dec=dep_dec, cap=dep_cap)
 
-            if self.t == 21625:
+            if self.t == 36724:
                 logging.debug('time debug')
             if self.all_buses[0].loc == '7@0':
                 logging.debug(f'location debug at {self.t}')
@@ -281,6 +281,7 @@ class Sim:
 
                         else:  # cur_bus.time_count -> 0
                             assert 0 < cur_bus.time_count <= MIN_STEP
+                            cur_bus.time_count = 0
                             if cur_bus.sep_state is not None:
                                 new_bus_front = Bus(
                                     cab_num=cur_bus.cab_num - cur_bus.sep_state,
@@ -403,6 +404,7 @@ class Sim:
                                     assert len(self.line.main_line[int(loc_1)]) == 0 or \
                                            cur_bus.pass_num == cur_bus.max_num, f'{len(self.line.main_line[int(loc_1)])}'
                                     if down_num + on_num < 0.2:
+                                        assert cur_bus.pass_num == cur_bus.max_num
                                         logging.error(f'nobody gets on or off at station={loc_1} at {self.t}')
                                     have_decided_list.append(cur_bus.bus_id)
                                     # 下一站
@@ -479,6 +481,8 @@ class Sim:
                                            sum([self.all_buses[on_bus].max_num-self.all_buses[on_bus].pass_num for on_bus in on_order]) == 0, f'{int(loc_1)}'
                                     for ind in range(len(down_num_list)):
                                         if down_num_list[ind] + on_num_list[ind] < 0.2:
+                                            assert \
+                                                self.all_buses[dec_list[ind]].pass_num == self.all_buses[dec_list[ind]].max_num or len(self.line.main_line[int(loc_1)]) == 0
                                             logging.error(f'nobody gets on or off at station={loc_1} at {self.t}')
                                         # 下一站
                                         sel_bus = self.all_buses[dec_list[ind]]
@@ -543,7 +547,6 @@ class Sim:
                 if cur_bus.cab_num > 1.8:  # 超过2节车厢
                     cur_station = int(cur_bus.loc.split('@')[0])
                     next_down_num = cur_bus.stop_pass_num(station=cur_station + 1)
-                    # logging.debug(f'{next_down_num}')
                     if next_down_num > MIN_SEP_PASS_NUM:  # 下站下车人数到达下限
                         not_down_num = cur_bus.pass_num - next_down_num
                         if not_down_num * self.stop_time >= \
@@ -734,7 +737,7 @@ class Sim:
 if __name__ == '__main__':
     line_info = read_in()
     start = time.time()
-    sim = Sim(**line_info, sim_mode='baseline')
+    sim = Sim(**line_info, sim_mode='single')
     sim.run()
     sim_result = sim.get_statistics()
     print('runtime: {:.2f}s'.format((time.time()-start)))

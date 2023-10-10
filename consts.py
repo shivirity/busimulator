@@ -36,16 +36,13 @@ DRIVER_WAGE_NEW = 100000
 DEP_DURATION = 10 * 60  # 10 * 60
 
 # ratio of max stop capacity to handle demand (mode='single')
-RATE_MAX_STOP = 0.9
+RATE_MAX_STOP = 1
 
 # max number of stations in the last part of the bus in separation decision (mode='single')
 MAX_SEP_STATIONS = 1  # 1 means only separate passengers who get off at next station/stop
 
 # travel distance fix between stations
 DIS_FIX = 50
-
-# separate-decision
-RATE_SEP = 0.3
 
 # comb and sep consts
 

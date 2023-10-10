@@ -42,10 +42,11 @@ class route_decider:
         assert self.mode == 'single'
         # divide bus_group into waiting and not waiting
         waiting_list = [bus for bus in bus_group if bus_info[bus].is_waiting is True]
+        not_waiting_list = [bus for bus in bus_group if bus_info[bus].is_waiting is False]
         dec_dict = {}
         stop_list, alter_stop_list, cur_loc, cur_station = \
             [], [], bus_info[bus_group[0]].loc, int(bus_info[bus_group[0]].loc.split('@')[0])
-        for bus in bus_group:
+        for bus in not_waiting_list:
             cur_bus = bus_info[bus]
             assert cur_bus.able is True
             if self.time2dec(loc=cur_loc, state=cur_bus.is_waiting):
@@ -83,14 +84,17 @@ class route_decider:
                     res_num = up_num - (max_num * RATE_MAX_STOP - pas_num + stop_pas_num)
                     enough_flag = False
                     for alter_bus in alter_stop_order:
-                        alter_num = bus_info[alter_bus].max_num - bus_info[alter_bus].pass_num
-                        if not enough_flag:
-                            dec_dict[alter_bus] = True
-                            res_num -= alter_num
-                            if res_num <= 0:
-                                enough_flag = True
-                        else:
+                        if bus_info[alter_bus].max_num == bus_info[alter_bus].pass_num:
                             dec_dict[alter_bus] = False
+                        else:
+                            alter_num = bus_info[alter_bus].max_num - bus_info[alter_bus].pass_num
+                            if not enough_flag:
+                                dec_dict[alter_bus] = True
+                                res_num -= alter_num
+                                if res_num <= 0:
+                                    enough_flag = True
+                            else:
+                                dec_dict[alter_bus] = False
             else:
                 res_num = len(line.main_line[cur_station])
                 alter_stop_order = \
@@ -100,14 +104,17 @@ class route_decider:
                     )
                 enough_flag = False
                 for alter_bus in alter_stop_order:
-                    alter_num = bus_info[alter_bus].max_num - bus_info[alter_bus].pass_num
-                    if not enough_flag:
-                        dec_dict[alter_bus] = True
-                        res_num -= alter_num
-                        if res_num <= 0:
-                            enough_flag = True
-                    else:
+                    if bus_info[alter_bus].max_num == bus_info[alter_bus].pass_num:
                         dec_dict[alter_bus] = False
+                    else:
+                        alter_num = bus_info[alter_bus].max_num - bus_info[alter_bus].pass_num
+                        if not enough_flag:
+                            dec_dict[alter_bus] = True
+                            res_num -= alter_num
+                            if res_num <= 0:
+                                enough_flag = True
+                        else:
+                            dec_dict[alter_bus] = False
         else:
             pass
 
