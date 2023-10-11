@@ -301,8 +301,10 @@ class Sim:
                                     able=True
                                 )
                                 new_bus_rear.pass_list = [list(cab) for cab in cur_bus.pass_list[-cur_bus.sep_state:]]
+                                '''
                                 logging.info(f'{cur_bus} successfully divide into '
                                              f'{new_bus_front} and {new_bus_rear} after station {int(loc_1)}')
+                                '''
                                 self.all_buses[self.next_bus_id + 1] = new_bus_rear
                                 self.next_bus_id += 2
                                 cur_bus.able = False
@@ -342,8 +344,10 @@ class Sim:
                                         able=True
                                     )
                                     new_bus.pass_list = [list(cab) for cab in cur_bus.pass_list + comb_bus.pass_list]
+                                '''
                                 logging.info(f'{cur_bus} and {comb_bus} successfully '
                                              f'transform to {new_bus} after station {int(loc_1)}')
+                                '''
                                 self.all_buses[self.next_bus_id] = new_bus
                                 self.next_bus_id += 1
                                 have_decided_list.append(cur_bus.bus_id)
@@ -372,8 +376,8 @@ class Sim:
                                 cur_bus.stop_count = 0  # 可能有车辆同时进站，发生在容量不足时
                                 same_stop_bus = list(self.get_loc_dict()[cur_bus.loc])  # [bus_ids]
                                 left_bus_list = [b for b in same_stop_bus if
-                                                 b not in have_decided_list and self.all_buses[
-                                                     b].stop_count == MIN_STEP]
+                                                 b not in have_decided_list and 0 < self.all_buses[
+                                                     b].stop_count <= MIN_STEP]
                                 if len(left_bus_list) < 0.8:  # 只有一辆车同时停留
                                     # 下车
                                     bus_pas_list = [i for j in cur_bus.pass_list for i in j]
@@ -475,8 +479,6 @@ class Sim:
                                             on_pas.on_t = self.t
                                             self.all_buses[on_bus].get_on(pas=on_pas)
                                             on_num_list[dec_list.index(on_bus)] += 1
-                                    if self.line.main_line[int(loc_1)]:
-                                        logging.debug(f'debug at {int(loc_1)} at {self.t}')
                                     assert not self.line.main_line[int(loc_1)] or \
                                            sum([self.all_buses[on_bus].max_num-self.all_buses[on_bus].pass_num for on_bus in on_order]) == 0, f'{int(loc_1)}'
                                     for ind in range(len(down_num_list)):
@@ -501,7 +503,7 @@ class Sim:
 
                                             # record number of passengers on selected bus
                                             for k in range(len(sel_bus.cab_id)):
-                                                self.all_cabs[cur_bus.cab_id[k]]['dep_time'].append(self.t)
+                                                self.all_cabs[sel_bus.cab_id[k]]['dep_time'].append(self.t)
                                                 self.all_cabs[sel_bus.cab_id[k]]['pas_num'].append(
                                                     len(sel_bus.pass_list[k])
                                                 )

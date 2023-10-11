@@ -8,7 +8,7 @@ SIM_END_T = 21.5 * 3600
 # case config
 TEST_LINE = 810
 DIRECTION = 0
-MIN_STEP = 1
+MIN_STEP = 2
 
 # capacity of bus
 LARGE_BUS = 90  # (31/90)

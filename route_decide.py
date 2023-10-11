@@ -56,7 +56,7 @@ class route_decider:
                 else:
                     if len(waiting_list) > 0.8:
                         dec_dict[bus] = False
-                        logging.warning(f'{bus} meets waiting {waiting_list} at station {cur_station}')
+                        # .warning(f'{bus} meets waiting {waiting_list} at station {cur_station}')
                     else:
                         if len(line.main_line[cur_station]) < 0.8:
                             dec_dict[bus] = False
@@ -74,8 +74,8 @@ class route_decider:
                     for bus in alter_stop_list:
                         dec_dict[bus] = False
                 else:
-                    logging.warning(f'seats are not enough at station {cur_station} '
-                                    f'with alter_stop: {alter_stop_list} and stop: {stop_list}')
+                    # logging.warning(f'seats are not enough at station {cur_station} '
+                    #                 f'with alter_stop: {alter_stop_list} and stop: {stop_list}')
                     alter_stop_order = \
                         sorted(
                             alter_stop_list,
