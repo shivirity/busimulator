@@ -1,4 +1,4 @@
-from consts import LARGE_BUS, SMALL_CAB, SIM_END_T, DEP_DURATION
+from consts import LARGE_BUS, SMALL_CAB, DEP_DURATION, LAST_BUS_T
 
 
 class dep_decider:
@@ -13,12 +13,12 @@ class dep_decider:
     def can_dep(self, cur_t: int):
         """判断是否发车"""
         if self.mode == 'baseline':
-            if cur_t <= SIM_END_T:
+            if cur_t <= LAST_BUS_T:
                 return True if (cur_t - self.last_dep >= DEP_DURATION) else False
             else:
                 return False
         elif self.mode == 'single':
-            if cur_t <= SIM_END_T:
+            if cur_t <= LAST_BUS_T:
                 return True if (cur_t - self.last_dep >= self.dep_duration_list[int(cur_t/3600)]) else False
             else:
                 return False

@@ -57,7 +57,7 @@ class Line:
 
         :return: pd.Dataframe
         """
-        pass_info = pd.read_csv(r'data\line_810\chain_data.csv', encoding='utf-8')
+        pass_info = pd.read_csv(r'D:\mofangbus\busimulator\data\line_810\chain_data.csv', encoding='utf-8')
         pass_info = pass_info[pass_info['direction'] == self.direc].reset_index(drop=True)
         s_pos_l, s_t_l, s_loc_l, e_loc_l, e_pos_l = [], [], [], [], []
         for i in range(pass_info.shape[0]):

@@ -4,6 +4,8 @@ PASSENGER_SPEED = 1.5
 
 SIM_START_T = 6 * 3600
 SIM_END_T = 21.5 * 3600
+LAST_BUS_T = 22 * 3600
+END_T = 26 * 3600
 
 # case config
 TEST_LINE = 810
