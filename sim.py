@@ -9,8 +9,8 @@ from env.bus import Bus
 from env.line import Line
 from env.passenger import Passenger
 
-from dep_decide import dep_decider
-from route_decide import route_decider
+from dep_decide import DepDecider
+from route_decide import RouteDecider
 
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -68,8 +68,8 @@ class Sim:
         # 路线
         self.line = Line(direc=DIRECTION, station_list=station_list, loc_list=loc_list,
                          dist_list=dist_list, speed_list=speed_list, mode=sim_mode, side_line_info=side_line_info)
-        self.dep_decider = dep_decider(sim_mode=sim_mode, dep_duration=dep_duration_list, dep_num=dep_num_list)
-        self.route_decider = route_decider(sim_mode=sim_mode)
+        self.dep_decider = DepDecider(sim_mode=sim_mode, dep_duration=dep_duration_list, dep_num=dep_num_list)
+        self.route_decider = RouteDecider(sim_mode=sim_mode)
 
         # 仿真模式 in ['baseline', 'single', 'multi']
         self.sim_mode = sim_mode

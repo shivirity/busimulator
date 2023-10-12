@@ -1,13 +1,10 @@
-import logging
-
 from env.bus import Bus
 from env.line import Line
-from env.passenger import Passenger
 
-from consts import RATE_MAX_STOP, MAX_SEP_STATIONS
+from consts import RATE_MAX_STOP
 
 
-class route_decider:
+class RouteDecider:
 
     def __init__(self, sim_mode: str = 'single'):
         """路线决策器"""

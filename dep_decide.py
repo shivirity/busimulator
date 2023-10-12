@@ -1,7 +1,7 @@
 from consts import LARGE_BUS, SMALL_CAB, DEP_DURATION, LAST_BUS_T
 
 
-class dep_decider:
+class DepDecider:
 
     def __init__(self, sim_mode: str = 'single', dep_duration: list = None, dep_num: list = None):
         assert sim_mode in ['baseline', 'single', 'multi']
