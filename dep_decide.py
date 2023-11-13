@@ -23,7 +23,10 @@ class DepDecider:
             else:
                 return False
         else:
-            pass
+            if cur_t <= LAST_BUS_T:
+                return True if (cur_t - self.last_dep >= self.dep_duration_list[int(cur_t / 3600)]) else False
+            else:
+                return False
 
     def decide(self, cur_t: int):
         """
@@ -37,4 +40,4 @@ class DepDecider:
         elif self.mode == 'single':
             return self.dep_num_list[int(cur_t/3600)], SMALL_CAB
         else:
-            pass
+            return self.dep_num_list[int(cur_t/3600)], SMALL_CAB

@@ -1,4 +1,4 @@
-PASSENGER_SPEED = 1.5
+PASSENGER_SPEED = 1.4
 
 # use seconds in timer
 
@@ -49,16 +49,27 @@ DIS_FIX = 50
 # comb and sep consts
 
 # ------- sep decision const ------
-MIN_SEP_PASS_NUM = 0  # 下车人数下限(in sep)
+MIN_SEP_PASS_NUM = 0  # 下车人数下限(in sep) (single: 0)
+MIN_SEP_PASS_NUM_MULTI = 0  # 下车人数下限(in sep)
 # ------- setting const -------
 SEP_DURATION = 14  # sep的预期时间
 SEP_DIST = 155  # sep的预期距离
 
 # ------- comb decision const ------
 RATE_COMB_ROUTE = 0.5  # in [0, 1], 预期结合的距离间隔(in comb), 越大代表对距离越宽容
+RATE_COMB_ROUTE_MULTI = 0.5
 RATE_FRONT_PASS = 0.3  # 分离时前车内n站内要下车的占比
+RATE_FRONT_PASS_MULTI = 0.3
 RATE_REAR_PASS = 0.5  # 分离时后车n站后要下车的占比
+RATE_REAR_PASS_MULTI = 0.5
 COMB_FORE_STA = 2  # comb决策时预期向前的站点数
+COMB_FORE_STA_MULTI = 3
 # ------- setting const -------
 COMB_DURATION = 22  # comb的预期时间
 COMB_DIST = 183  # comb的预期距离
+
+# multi-mode consts
+MAIN_LINE_STOP_TURN_THRESHOLD = 2  # 主线站点转向阈值人数
+MAIN_LINE_STOP_TURN_RATE_THRESHOLD = 0.2  # 主线站点转向阈值比例
+
+ONLY_MAIN_LINE_STOP_THRESHOLD = 1  # 主线站点停站的等待车辆数阈值
