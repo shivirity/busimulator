@@ -1681,6 +1681,7 @@ class Sim:
 
             else:
                 avg_travel_t, avg_wait_t, full_t, avg_station_wait_t, avg_move_dist = 0, 0, 0, 0, 0
+                avg_on_move_dist, avg_down_move_dist = 0, 0
                 for pas in self.all_passengers.values():
                     pas.get_statistics(line=self.line, mode=self.sim_mode)
                     avg_travel_t += pas.travel_t
@@ -1688,11 +1689,15 @@ class Sim:
                     full_t += pas.full_jour_t
                     avg_station_wait_t += pas.station_wait_t
                     avg_move_dist += pas.move_dist
+                    avg_on_move_dist += pas.on_move_dist
+                    avg_down_move_dist += pas.down_move_dist
                 avg_travel_t /= (len(self.all_passengers) * 60)
                 avg_wait_t /= (len(self.all_passengers) * 60)
                 full_t /= (len(self.all_passengers) * 60)
                 avg_station_wait_t /= (len(self.all_passengers) * 60)
                 avg_move_dist /= len(self.all_passengers)
+                avg_on_move_dist /= len(self.all_passengers)
+                avg_down_move_dist /= len(self.all_passengers)
 
                 # 车辆出行数据
                 if self.sim_mode == 'baseline':
@@ -1741,6 +1746,7 @@ class Sim:
 
         else:
             avg_travel_t, avg_wait_t, full_t, avg_station_wait_t, avg_move_dist = 0, 0, 0, 0, 0
+            avg_on_move_dist, avg_down_move_dist = 0, 0
             for pas in self.pas_pool:
                 pas.get_statistics(line=self.line, mode=self.sim_mode)
                 avg_travel_t += pas.travel_t
@@ -1748,11 +1754,15 @@ class Sim:
                 full_t += pas.full_jour_t
                 avg_station_wait_t += pas.station_wait_t
                 avg_move_dist += pas.move_dist
+                avg_on_move_dist += pas.on_move_dist
+                avg_down_move_dist += pas.down_move_dist
             avg_travel_t /= (len(self.pas_pool) * 60)
             avg_wait_t /= (len(self.pas_pool) * 60)
             full_t /= (len(self.pas_pool) * 60)
             avg_station_wait_t /= (len(self.pas_pool) * 60)
             avg_move_dist /= len(self.pas_pool)
+            avg_on_move_dist /= len(self.pas_pool)
+            avg_down_move_dist /= len(self.pas_pool)
 
             cap = SMALL_CAB
             power_consump_speed = sum([cab['dist'] for cab in self.all_cabs.values()]) * CONSUMP_SPEED_NEW
@@ -1783,6 +1793,8 @@ class Sim:
             'avg_wait_t(min)': avg_wait_t,
             'avg_station_wait_t(min)': avg_station_wait_t,
             'avg_move_dist(m)': avg_move_dist,
+            'avg_on_move_dist(m)': avg_on_move_dist,
+            'avg_down_move_dist(m)': avg_down_move_dist,
             'power consumption(equal speed, kWh)': power_consump_speed,
             'power consumption(condition, kWh)': power_consump_cond,
             'driver wage(WRMB, year)': driver_wage / 10000,  # avg_travel_time / departure_duration = 20
@@ -1801,11 +1813,11 @@ if __name__ == '__main__':
 
     # optimization for single line
     # plan 1
-    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
-    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
+    line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
+    line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
     # plan 2
-    line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
-    line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 480, 480, 480, 480, 720, 720, 840, 840, 720, 720, 660, 660, 720, 720, 720, 720]
+    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
+    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 480, 480, 480, 480, 720, 720, 840, 840, 720, 720, 660, 660, 720, 720, 720, 720]
     # plan 3
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 840, 840, 900, 900, 840, 840, 840, 840, 840, 840, 840, 840, 840, 840, 720, 720, 600, 600]
