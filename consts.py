@@ -72,4 +72,4 @@ COMB_DIST = 183  # comb的预期距离
 MAIN_LINE_STOP_TURN_THRESHOLD = 2  # 主线站点转向阈值人数
 MAIN_LINE_STOP_TURN_RATE_THRESHOLD = 0.2  # 主线站点转向阈值比例
 
-ONLY_MAIN_LINE_STOP_THRESHOLD = 1  # 主线站点停站的等待车辆数阈值
+ONLY_MAIN_LINE_STOP_THRESHOLD = 0  # 主线站点停站的等待车辆数阈值

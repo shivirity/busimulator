@@ -131,7 +131,7 @@ class Sim:
                 self.update_dep(dec=dep_dec, cap=dep_cap)
 
             # debug phase
-            if self.t == 25306:
+            if self.t == 49450:
                 logging.debug('time debug')
             if self.all_buses[0].loc == '7@0':
                 logging.debug(f'location debug at {self.t}')
@@ -674,7 +674,7 @@ class Sim:
                                             if down_num + on_num < 0.2:
                                                 if self.print_log:
                                                     logging.error(
-                                                        f'nobody gets on or off at station={main_id} at {self.t}')
+                                                        f'nobody gets on or off at station={main_id} at {self.t} when not returning with pas number={cur_bus.pass_num}')
                                             have_decided_list.append(cur_bus.bus_id)
                                             # 下一站
                                             if main_id == self.line.max_station_num and cur_bus.to_turn == 0:
@@ -772,7 +772,7 @@ class Sim:
                                                             self.line.main_line[main_id]) == 0
                                                     if self.print_log:
                                                         logging.error(
-                                                            f'nobody gets on or off at station={main_id} at {self.t}')
+                                                            f'nobody gets on or off at station={main_id} at {self.t} when not returning with pas number={self.all_buses[dec_list[ind]].pass_num}')
                                                 # 下一站
                                                 sel_bus = self.all_buses[dec_list[ind]]
                                                 if main_id == self.line.max_station_num and sel_bus.to_turn == 0:
@@ -918,7 +918,7 @@ class Sim:
                                             if down_num + on_num < 0.2:
                                                 if self.print_log:
                                                     logging.error(
-                                                        f'nobody gets on or off at station={cur_bus.loc} at {self.t}')
+                                                        f'nobody gets on or off at station={cur_bus.loc} at {self.t} when not returning with pas number={cur_bus.pass_num}')
                                             have_decided_list.append(cur_bus.bus_id)
                                             # 下一站
                                             cur_bus.is_waiting, cur_bus.to_stop = False, False
@@ -974,7 +974,7 @@ class Sim:
                                             if on_num < 0.2:
                                                 if self.print_log:
                                                     logging.error(
-                                                        f'nobody gets on or off at station={main_id} at {self.t}')
+                                                        f'nobody gets on or off at station={main_id} at {self.t} when returning')
                                             have_decided_list.append(cur_bus.bus_id)
                                             # 下一站
                                             if main_id == self.line.max_station_num:
@@ -1047,7 +1047,7 @@ class Sim:
                                                             self.line.main_line[main_id]) == 0
                                                     if self.print_log:
                                                         logging.error(
-                                                            f'nobody gets on or off at station={main_id} at {self.t}')
+                                                            f'nobody gets on or off at station={main_id} at {self.t} when returning')
                                                 # 下一站
                                                 sel_bus = self.all_buses[dec_list[ind]]
                                                 assert sel_bus.to_turn == 0
@@ -1117,7 +1117,7 @@ class Sim:
                                         if on_num < 0.2:
                                             if self.print_log:
                                                 logging.error(
-                                                    f'nobody gets on or off at station={cur_bus.loc} at {self.t}')
+                                                    f'nobody gets on or off at station={cur_bus.loc} at {self.t} when returning')
                                         # 下一站
                                         cur_bus.is_waiting, cur_bus.to_stop = False, False
                                         cur_bus.running, cur_bus.stop_count = True, 0

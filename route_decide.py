@@ -144,8 +144,9 @@ class RouteDecider:
                         waiting_group = [bus for bus in bus_group if bus_info[bus].is_waiting is True]
                         if len(waiting_group) == 0 and len(dec_stop_list) == 0 and \
                                 line.side_line[f'{main_id}#{side_id}'].side_stations[side_order]['pool']:
-                            dec_dict[cur_bus.bus_id] = {'stop': True, 'turn': 0}
-                            dec_stop_list.append(cur_bus.bus_id)
+                            if cur_bus.pass_num < cur_bus.max_num:
+                                dec_dict[cur_bus.bus_id] = {'stop': True, 'turn': 0}
+                                dec_stop_list.append(cur_bus.bus_id)
                         else:
                             dec_dict[cur_bus.bus_id] = {'stop': False, 'turn': 0}
                 else:  # not returning
@@ -158,7 +159,11 @@ class RouteDecider:
                         else:
                             if cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{side_order}') > 0 or \
                                     line.side_line[f'{main_id}#{side_id}'].side_stations[side_order]['pool']:
-                                dec_dict[cur_bus.bus_id] = {'stop': True, 'turn': 0}
+                                if cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{side_order}') == 0 and \
+                                        cur_bus.pass_num == cur_bus.max_num:
+                                    dec_dict[cur_bus.bus_id] = {'stop': False, 'turn': 0}
+                                else:
+                                    dec_dict[cur_bus.bus_id] = {'stop': True, 'turn': 0}
                             else:
                                 dec_dict[cur_bus.bus_id] = {'stop': False, 'turn': 0}
 
@@ -289,7 +294,7 @@ class RouteDecider:
                             if len(side_1_bus_num) + len(decide_turn[1]) > 0.2 and \
                                     len(side_2_bus_num) + len(decide_turn[2]) > 0.2:
                                 # 两边都有车，且两边都没有下车
-                                if len(line.main_line[main_id]) > 0 and len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD:  # 有人在主线上
+                                if len(line.main_line[main_id]) > 0 and len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD and cur_bus.pass_num < cur_bus.max_num:  # 有人在主线上
                                     dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
                                 else:
                                     dec_dict[bus] = {'stop': False, 'turn': 0, 'can_return_stop': False}
@@ -302,7 +307,7 @@ class RouteDecider:
                                     decide_turn[2].append(bus)
                                     dec_num += 1
                                 else:
-                                    if len(line.main_line[main_id]) > 0 and len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD:  # 有人在主线上
+                                    if len(line.main_line[main_id]) > 0 and len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD and cur_bus.pass_num < cur_bus.max_num:  # 有人在主线上
                                         dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
                                     else:
                                         dec_dict[bus] = {'stop': False, 'turn': 0, 'can_return_stop': False}
@@ -315,7 +320,7 @@ class RouteDecider:
                                     decide_turn[1].append(bus)
                                     dec_num += 1
                                 else:
-                                    if len(line.main_line[main_id]) > 0 and len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD:  # 有人在主线上
+                                    if len(line.main_line[main_id]) > 0 and len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD and cur_bus.pass_num < cur_bus.max_num:  # 有人在主线上
                                         dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
                                     else:
                                         dec_dict[bus] = {'stop': False, 'turn': 0, 'can_return_stop': False}
@@ -331,7 +336,7 @@ class RouteDecider:
                                     decide_turn[turn_direc].append(bus)
                                     dec_num += 1
                                 else:
-                                    if len(line.main_line[main_id]) > 0 and len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD:  # 有人在主线上
+                                    if len(line.main_line[main_id]) > 0 and len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD and cur_bus.pass_num < cur_bus.max_num:  # 有人在主线上
                                         dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
                                     else:
                                         dec_dict[bus] = {'stop': False, 'turn': 0, 'can_return_stop': False}
