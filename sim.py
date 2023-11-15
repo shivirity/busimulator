@@ -67,7 +67,8 @@ def read_in_for_opt():
 class Sim:
 
     def __init__(self, station_list: list, dist_list: list, loc_list: list,
-                 speed_list: list, sim_mode: str, dep_duration_list: list, dep_num_list: list, side_line_info=None):
+                 speed_list: list, sim_mode: str, dep_duration_list: list, dep_num_list: list,
+                 side_line_info=None, **kwargs):
         # 路线
         self.line = Line(direc=DIRECTION, station_list=station_list, loc_list=loc_list,
                          dist_list=dist_list, speed_list=speed_list, mode=sim_mode, side_line_info=side_line_info)
@@ -95,6 +96,10 @@ class Sim:
 
         # 日志输出
         self.print_log = False
+
+        # 主线+支线决策模式
+        if self.sim_mode == 'multi':
+            self.multi_dec_rule = kwargs['multi_dec_rule']
 
     @property
     def stop_time(self):
@@ -131,7 +136,7 @@ class Sim:
                 self.update_dep(dec=dep_dec, cap=dep_cap)
 
             # debug phase
-            if self.t == 49450:
+            if self.t == 55030:
                 logging.debug('time debug')
             if self.all_buses[0].loc == '7@0':
                 logging.debug(f'location debug at {self.t}')
@@ -223,11 +228,13 @@ class Sim:
                     group = list(loc_dict[loc])
                     if len(group) > 0:
                         bus_dec = self.route_decider.decide_stop_action_multi(loc=loc, bus_group=group,
-                                                                              bus_info=self.all_buses, line=self.line)
+                                                                              bus_info=self.all_buses,
+                                                                              line=self.line,
+                                                                              rule=self.multi_dec_rule)
                         self.apply_action_in_assign_multi(bus_dec=bus_dec)
 
     def run_step(self):
-        available_bus = [b.bus_id for b in self.all_buses.values() if (b.state != 'end') and (b.able is True)]
+        available_bus = [b.bus_id for b in self.all_buses.values() if (b.state != 'end' and b.able is True)]
         if self.sim_mode == 'baseline':
             for bus_id in available_bus:
                 cur_bus = self.all_buses[bus_id]
@@ -267,6 +274,7 @@ class Sim:
                             # 下一站
                             if int(loc_1) == self.line.max_station_num:
                                 cur_bus.state = 'end'
+                                cur_bus.able = False
                                 assert cur_bus.pass_num == 0
                                 for cab in cur_bus.cab_id:
                                     self.all_cabs[cab]['end_t'] = self.t
@@ -289,6 +297,7 @@ class Sim:
                         assert cur_bus.running is True or cur_bus.loc.split('@')[0] == '1'
                         if int(loc_1) == self.line.max_station_num:
                             cur_bus.state = 'end'
+                            cur_bus.able = False
                             assert cur_bus.pass_num == 0
                             for cab in cur_bus.cab_id:
                                 self.all_cabs[cab]['end_t'] = self.t
@@ -367,11 +376,11 @@ class Sim:
                                     able=True
                                 )
                                 new_bus_rear.pass_list = [list(cab) for cab in cur_bus.pass_list[-cur_bus.sep_state:]]
-                                '''
+
                                 if self.print_log:
                                     logging.info(f'{cur_bus} successfully divide into '
                                                  f'{new_bus_front} and {new_bus_rear} after station {int(loc_1)}')
-                                '''
+
                                 self.all_buses[self.next_bus_id + 1] = new_bus_rear
                                 self.next_bus_id += 2
                                 cur_bus.able = False
@@ -411,11 +420,11 @@ class Sim:
                                         able=True
                                     )
                                     new_bus.pass_list = [list(cab) for cab in cur_bus.pass_list + comb_bus.pass_list]
-                                '''
+
                                 if self.print_log:
                                     logging.info(f'{cur_bus} and {comb_bus} successfully '
                                                  f'transform to {new_bus} after station {int(loc_1)}')
-                                '''
+
                                 self.all_buses[self.next_bus_id] = new_bus
                                 self.next_bus_id += 1
                                 have_decided_list.append(cur_bus.bus_id)
@@ -482,6 +491,7 @@ class Sim:
                                     # 下一站
                                     if int(loc_1) == self.line.max_station_num:
                                         cur_bus.state = 'end'
+                                        cur_bus.able = False
                                         assert cur_bus.pass_num == 0
                                         for cab in cur_bus.cab_id:
                                             self.all_cabs[cab]['end_t'] = self.t
@@ -560,6 +570,7 @@ class Sim:
                                         sel_bus = self.all_buses[dec_list[ind]]
                                         if int(loc_1) == self.line.max_station_num:
                                             sel_bus.state = 'end'
+                                            sel_bus.able = False
                                             assert cur_bus.pass_num == 0
                                             for cab in sel_bus.cab_id:
                                                 self.all_cabs[cab]['end_t'] = self.t
@@ -589,6 +600,7 @@ class Sim:
                             assert cur_bus.running is True or cur_bus.loc.split('@')[0] == '1'
                             if int(loc_1) == self.line.max_station_num:
                                 cur_bus.state = 'end'
+                                cur_bus.able = False
                                 assert cur_bus.pass_num == 0
                                 for cab in cur_bus.cab_id:
                                     self.all_cabs[cab]['end_t'] = self.t
@@ -619,7 +631,7 @@ class Sim:
                             if cur_bus.is_returning is False:
                                 # case 1
                                 if side_id == 0:
-                                    assert cur_bus.stop_count > 0
+                                    assert cur_bus.stop_count > 0, f'{self.t, cur_bus, cur_bus.stop_count}'
                                     if cur_bus.is_waiting is False:
                                         cur_bus.is_waiting = True
                                     cur_bus.stop_count -= MIN_STEP
@@ -636,7 +648,8 @@ class Sim:
                                                 down_pas_list = [pas for pas in bus_pas_list
                                                                  if (pas.end_loc == main_id
                                                                      if isinstance(pas.end_loc, (int, np.integer))
-                                                                     else pas.end_loc.startswith(f'{main_id}#{round(3 - cur_bus.to_turn)}'))]
+                                                                     else pas.end_loc.startswith(
+                                                        f'{main_id}#{round(3 - cur_bus.to_turn)}'))]
                                             else:
                                                 down_pas_list = [pas for pas in bus_pas_list
                                                                  if (pas.end_loc == main_id
@@ -679,7 +692,8 @@ class Sim:
                                             # 下一站
                                             if main_id == self.line.max_station_num and cur_bus.to_turn == 0:
                                                 cur_bus.state = 'end'
-                                                assert cur_bus.pass_num == 0
+                                                cur_bus.able = False
+                                                assert cur_bus.pass_num == 0, f'{cur_bus, cur_bus.pass_num}'
                                                 for cab in cur_bus.cab_id:
                                                     self.all_cabs[cab]['end_t'] = self.t
                                             else:
@@ -777,6 +791,7 @@ class Sim:
                                                 sel_bus = self.all_buses[dec_list[ind]]
                                                 if main_id == self.line.max_station_num and sel_bus.to_turn == 0:
                                                     sel_bus.state = 'end'
+                                                    sel_bus.able = False
                                                     assert sel_bus.pass_num == 0
                                                     for cab in sel_bus.cab_id:
                                                         self.all_cabs[cab]['end_t'] = self.t
@@ -793,7 +808,7 @@ class Sim:
                                                         sel_bus.to_dec_trans = True
                                                         sel_bus.loc = f'{main_id}#0#0#5'
                                                         sel_bus.run_next = f'{main_id + 1}#0#0#0'
-                                                        cur_bus.time_count = round(
+                                                        sel_bus.time_count = round(
                                                             (self.line.dist_list[main_id - 1] - DIS_FIX) /
                                                             self.line.speed_list[main_id - 1])
 
@@ -806,7 +821,7 @@ class Sim:
 
                                                     sel_bus.sort_passengers(
                                                         station=main_id, pas_info=self.all_passengers, mode='multi')
-                                                    have_decided_list.append(dec_list[ind])
+                                                have_decided_list.append(dec_list[ind])
                                     else:
                                         pass
 
@@ -980,6 +995,7 @@ class Sim:
                                             if main_id == self.line.max_station_num:
                                                 cur_bus.is_returning = False
                                                 cur_bus.state = 'end'
+                                                cur_bus.able = False
                                                 assert cur_bus.pass_num == 0
                                                 for cab in cur_bus.cab_id:
                                                     self.all_cabs[cab]['end_t'] = self.t
@@ -1054,6 +1070,7 @@ class Sim:
                                                 if main_id == self.line.max_station_num:
                                                     sel_bus.is_returning = False
                                                     sel_bus.state = 'end'
+                                                    sel_bus.able = False
                                                     assert sel_bus.pass_num == 0
                                                     for cab in sel_bus.cab_id:
                                                         self.all_cabs[cab]['end_t'] = self.t
@@ -1078,7 +1095,7 @@ class Sim:
 
                                                     sel_bus.sort_passengers(
                                                         station=main_id, pas_info=self.all_passengers, mode='multi')
-                                                    have_decided_list.append(dec_list[ind])
+                                                have_decided_list.append(dec_list[ind])
                                     else:
                                         pass
 
@@ -1146,6 +1163,7 @@ class Sim:
                                 if side_id == 0:
                                     if main_id == self.line.max_station_num and cur_bus.to_turn == 0:
                                         cur_bus.state = 'end'
+                                        cur_bus.able = False
                                         assert cur_bus.pass_num == 0, f'{cur_bus}, {cur_bus.pass_num}'
                                         for cab in cur_bus.cab_id:
                                             self.all_cabs[cab]['end_t'] = self.t
@@ -1234,6 +1252,7 @@ class Sim:
                                     if main_id == self.line.max_station_num:
                                         cur_bus.is_returning = False
                                         cur_bus.state = 'end'
+                                        cur_bus.able = False
                                         assert cur_bus.pass_num == 0, f'{cur_bus.bus_id, cur_bus.pass_num}'
                                         for cab in cur_bus.cab_id:
                                             self.all_cabs[cab]['end_t'] = self.t
@@ -1279,7 +1298,8 @@ class Sim:
                         if cur_bus.is_returning is False:
                             if side_id == 0:
                                 if cur_bus.sep_dec is not None:
-                                    assert cur_bus.comb_dec is None and cur_bus.time_count > 0
+                                    assert cur_bus.comb_dec is None and cur_bus.time_count > 0, \
+                                        f'{cur_bus, cur_bus.comb_dec, cur_bus.time_count}'
                                     cur_bus.time_count = round(
                                         SEP_DURATION +
                                         (self.line.dist_list[main_id - 1] - DIS_FIX - SEP_DIST) /
@@ -1295,8 +1315,8 @@ class Sim:
                                         self.line.speed_list[main_id - 1])
                                     cur_bus.time_count = res_time_count
                                     comb_bus.time_count = res_time_count
-                                    cur_bus.comb_state, comb_bus.comb_state = list(cur_bus.comb_dec), list(
-                                        comb_bus.comb_dec)
+                                    cur_bus.comb_state, comb_bus.comb_state = list(cur_bus.comb_dec), \
+                                                                              list(comb_bus.comb_dec)
                                     cur_bus.comb_dec, comb_bus.comb_dec = None, None
 
                                     have_decided_list.append(comb_bus_id)
@@ -1710,7 +1730,8 @@ class Sim:
                     avg_pas_num = np.mean(avg_pas_num_list) / cap
                     pas_num_list = [max(cab['pas_num']) for cab in self.all_cabs.values()]
                     max_pas_num = np.max(pas_num_list) / cap
-                    avg_pas_num_list_early = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
+                    avg_pas_num_list_early = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in
+                                              self.all_cabs.values()
                                               if 6 * 3600 <= cab['dep_time'][0] < 8 * 3600]
                     avg_pas_num_early = np.mean(avg_pas_num_list_early) / cap
                     avg_pas_num_list_noon = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
@@ -1786,7 +1807,6 @@ class Sim:
             avg_pas_num_late = np.mean(avg_pas_num_array_late) / cap
             driver_wage = len(self.all_cabs) / 96 * 240 * 5 / 6 * 10000
 
-
         return {
             'avg_travel_t(on bus, min)': avg_travel_t,
             'avg_travel_t(full, min)': full_t,
@@ -1813,8 +1833,8 @@ if __name__ == '__main__':
 
     # optimization for single line
     # plan 1
-    line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
-    line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
+    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
+    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
     # plan 2
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 480, 480, 480, 480, 720, 720, 840, 840, 720, 720, 660, 660, 720, 720, 720, 720]
@@ -1822,7 +1842,8 @@ if __name__ == '__main__':
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 840, 840, 900, 900, 840, 840, 840, 840, 840, 840, 840, 840, 840, 840, 720, 720, 600, 600]
 
-    sim = Sim(**line_info, sim_mode='multi')
+    multi_dec_rule = 'down_first'
+    sim = Sim(**line_info, sim_mode='multi', multi_dec_rule=multi_dec_rule)
     sim.print_log = True
     sim.run()
     sim_result = sim.get_statistics()
@@ -1830,4 +1851,4 @@ if __name__ == '__main__':
     if sim.sim_mode in ['baseline', 'single']:
         print(f'optimal travel time on bus: {sim.get_passenger_optimal()} min')
     else:
-        print('satisfaction rate: {:.2f}%'.format(len(sim.pas_pool)/len(sim.all_passengers)*100))
+        print('satisfaction rate: {:.2f}%'.format(len(sim.pas_pool) / len(sim.all_passengers) * 100))

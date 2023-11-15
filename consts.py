@@ -58,10 +58,10 @@ SEP_DIST = 155  # sep的预期距离
 # ------- comb decision const ------
 RATE_COMB_ROUTE = 0.5  # in [0, 1], 预期结合的距离间隔(in comb), 越大代表对距离越宽容
 RATE_COMB_ROUTE_MULTI = 0.5
-RATE_FRONT_PASS = 0.3  # 分离时前车内n站内要下车的占比
-RATE_FRONT_PASS_MULTI = 0.3
-RATE_REAR_PASS = 0.5  # 分离时后车n站后要下车的占比
-RATE_REAR_PASS_MULTI = 0.5
+RATE_FRONT_PASS = 0.3  # comb时前车内n站内要下车的占比
+RATE_FRONT_PASS_MULTI = 0.9
+RATE_REAR_PASS = 0.5  # comb时后车n站后要下车的占比
+RATE_REAR_PASS_MULTI = 0.9
 COMB_FORE_STA = 2  # comb决策时预期向前的站点数
 COMB_FORE_STA_MULTI = 3
 # ------- setting const -------
