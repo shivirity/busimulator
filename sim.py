@@ -101,6 +101,12 @@ class Sim:
         if self.sim_mode == 'multi':
             self.multi_dec_rule = kwargs['multi_dec_rule']
 
+        # 车辆状态输出
+        self.get_record = kwargs['record_time'] if 'record_time' in kwargs.keys() else None
+        self.record_dict = {} if self.get_record is not None else None
+        self.record_bus_num = 0 if self.get_record is not None else None
+        self.record_end_bus_num = 0 if self.get_record is not None else None
+
     @property
     def stop_time(self):
         """进站时间"""
@@ -158,6 +164,34 @@ class Sim:
             # if 103 in self.all_buses.keys():
             #     print(self.t, self.all_buses[103].loc)
 
+            # record phase
+            if self.get_record is not None:
+                foresee_bus_num = 500
+                start_re_t, end_re_t = self.get_record
+                if start_re_t <= self.t < end_re_t:
+                    if self.t == start_re_t:
+                        self.record_bus_num = len(self.all_buses)
+                    self.record_dict[f'bus_id_{self.t}'] = list(self.all_buses.keys())
+                    if len(self.record_dict[f'bus_id_{self.t}']) < self.record_bus_num+foresee_bus_num:
+                        self.record_dict[f'bus_id_{self.t}'] += [-1] * (self.record_bus_num+foresee_bus_num - len(self.record_dict[f'bus_id_{self.t}']))
+                    self.record_dict[f'bus_able_{self.t}'] = [(1 if self.all_buses[bus_id].able is True else 0) for
+                                                              bus_id in self.all_buses.keys()]
+                    if len(self.record_dict[f'bus_able_{self.t}']) < self.record_bus_num+foresee_bus_num:
+                        self.record_dict[f'bus_able_{self.t}'] += [-1] * (self.record_bus_num+foresee_bus_num - len(self.record_dict[f'bus_able_{self.t}']))
+                    self.record_dict[f'bus_loc_{self.t}'] = [(1 if self.all_buses[bus_id].able is True else 0) for
+                                                              bus_id in self.all_buses.keys()]
+                    if len(self.record_dict[f'bus_loc_{self.t}']) < self.record_bus_num+foresee_bus_num:
+                        self.record_dict[f'bus_loc_{self.t}'] += [-1] * (self.record_bus_num+foresee_bus_num - len(self.record_dict[f'bus_loc_{self.t}']))
+                    self.record_dict[f'bus_cabs_{self.t}'] = [self.all_buses[bus_id].cab_id for bus_id in self.all_buses.keys()]
+                    if len(self.record_dict[f'bus_cabs_{self.t}']) < self.record_bus_num+foresee_bus_num:
+                        self.record_dict[f'bus_cabs_{self.t}'] += [-1] * (self.record_bus_num+foresee_bus_num - len(self.record_dict[f'bus_cabs_{self.t}']))
+                    self.record_dict[f'bus_pass_num_{self.t}'] = [[len(cab) for cab in self.all_buses[bus_id].pass_list] for bus_id in self.all_buses.keys()]
+                    if len(self.record_dict[f'bus_pass_num_{self.t}']) < self.record_bus_num+foresee_bus_num:
+                        self.record_dict[f'bus_pass_num_{self.t}'] += [-1] * (self.record_bus_num+foresee_bus_num - len(self.record_dict[f'bus_pass_num_{self.t}']))
+
+                elif self.t == end_re_t:
+                    self.record_end_bus_num = len(self.all_buses)
+
             # 更新乘客到站
             self.update_passengers()
 
@@ -173,6 +207,10 @@ class Sim:
 
             # 系统时间步进
             self.t += MIN_STEP
+
+        if self.get_record is not None:
+            self.record_df = pd.DataFrame(self.record_dict)[:self.record_end_bus_num]
+            self.record_df.to_csv(rf'.\data\line_{TEST_LINE}\record_{self.sim_mode}_{round(self.get_record[0])}_{round(self.get_record[1])}.csv', index=False)
 
     def update_passengers(self):
         """更新乘客到站"""
@@ -1843,8 +1881,10 @@ if __name__ == '__main__':
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 840, 840, 900, 900, 840, 840, 840, 840, 840, 840, 840, 840, 840, 840, 720, 720, 600, 600]
 
     multi_dec_rule = 'down_first'
-    sim = Sim(**line_info, sim_mode='multi', multi_dec_rule=multi_dec_rule)
+    sim = Sim(**line_info, sim_mode='single', multi_dec_rule=multi_dec_rule, record_time=None)
     sim.print_log = True
+    # sim.get_record = None
+    # sim.get_record = (9 * 3600, 9.2 * 3600)
     sim.run()
     sim_result = sim.get_statistics()
     print('runtime: {:.2f}s'.format((time.time() - start)))
