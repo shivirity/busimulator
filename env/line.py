@@ -1,4 +1,5 @@
 import heapq
+import logging
 import random
 import numpy as np
 import pandas as pd
@@ -109,7 +110,7 @@ class Line:
                         else:
                             up_loc = up_station
                 else:
-                    print('main stations has changed.')
+                    logging.info('main stations has changed.')
                     main_station_dist = []
                     for main_station_pos in self.loc_list:
                         main_station_dist.append(
@@ -172,7 +173,7 @@ class Line:
                     else:
                         down_loc = down_station
                 else:
-                    print('main stations has changed.')
+                    logging.info('main stations has changed.')
                     main_station_dist = []
                     for main_station_pos in self.loc_list:
                         main_station_dist.append(

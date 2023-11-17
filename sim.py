@@ -16,22 +16,40 @@ from route_decide import RouteDecider
 logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-def read_in():
-    # read files
-    dist_mat = pd.read_csv(rf'data\line_{TEST_LINE}\distance_matrix_{DIRECTION}.csv', encoding='gbk')
-    speed_df = pd.read_csv(rf'data\line_{TEST_LINE}\speed_list_{DIRECTION}.csv', encoding='gbk')
-    station_info = pd.read_csv(rf'data\line_{TEST_LINE}\station_info.csv', encoding='gbk')
-    dep_duration_list = pd.read_csv(rf'data\line_{TEST_LINE}\dep_duration_{DIRECTION}.csv', encoding='gbk')
-    dep_num_list = pd.read_csv(rf'data\line_{TEST_LINE}\dep_num_{DIRECTION}.csv', encoding='gbk')
-    station_info = station_info[station_info['direction'] == DIRECTION].reset_index(drop=True)
-    side_line_info = pd.read_csv(rf'data\line_{TEST_LINE}\side_line_info_{DIRECTION}.csv', encoding='gbk')
-    # get station list
-    station_list = list(station_info['station'])
-    dist_list = list(dist_mat['dist'])
-    speed_list = list(speed_df['speed'])
-    loc_list = list(zip(list(station_info['lat']), list(station_info['lon'])))
-    dep_duration_list = list(dep_duration_list['dep_duration'])
-    dep_num_list = list(dep_num_list['dep_num'])
+def read_in(**kwargs):
+    """read files"""
+    way, frac = kwargs['way'], kwargs['fractile']
+    if kwargs['fractile'] is None:
+        dist_mat = pd.read_csv(rf'data\line_{TEST_LINE}\distance_matrix_{DIRECTION}.csv', encoding='gbk')
+        speed_df = pd.read_csv(rf'data\line_{TEST_LINE}\speed_list_{DIRECTION}.csv', encoding='gbk')
+        station_info = pd.read_csv(rf'data\line_{TEST_LINE}\station_info.csv', encoding='gbk')
+        dep_duration_list = pd.read_csv(rf'data\line_{TEST_LINE}\dep_duration_{DIRECTION}.csv', encoding='gbk')
+        dep_num_list = pd.read_csv(rf'data\line_{TEST_LINE}\dep_num_{DIRECTION}.csv', encoding='gbk')
+        station_info = station_info[station_info['direction'] == DIRECTION].reset_index(drop=True)
+        side_line_info = pd.read_csv(rf'data\line_{TEST_LINE}\side_line_info_{DIRECTION}.csv', encoding='gbk')
+        # get station list
+        station_list = list(station_info['station'])
+        dist_list = list(dist_mat['dist'])
+        speed_list = list(speed_df['speed'])
+        loc_list = list(zip(list(station_info['lat']), list(station_info['lon'])))
+        dep_duration_list = list(dep_duration_list['dep_duration'])
+        dep_num_list = list(dep_num_list['dep_num'])
+    else:
+        dist_mat = pd.read_csv(rf'data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\distance_matrix_{DIRECTION}.csv', encoding='gbk')
+        speed_df = pd.read_csv(rf'data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\speed_list_{DIRECTION}.csv', encoding='gbk')
+        station_info = pd.read_csv(rf'data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\station_info.csv', encoding='gbk')
+        dep_duration_list = pd.read_csv(rf'data\line_{TEST_LINE}\dep_duration_{DIRECTION}.csv', encoding='gbk')
+        dep_num_list = pd.read_csv(rf'data\line_{TEST_LINE}\dep_num_{DIRECTION}.csv', encoding='gbk')
+        station_info = station_info[station_info['direction'] == DIRECTION].reset_index(drop=True)
+        side_line_info = pd.read_csv(
+            rf'data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\side_line_info_{DIRECTION}.csv', encoding='gbk')
+        # get station list
+        station_list = list(station_info['station'])
+        dist_list = list(dist_mat['dist'])
+        speed_list = list(speed_df['speed'])
+        loc_list = list(zip(list(station_info['lat']), list(station_info['lon'])))
+        dep_duration_list = list(dep_duration_list['dep_duration'])
+        dep_num_list = list(dep_num_list['dep_num'])
 
     return {
         'station_list': station_list,
@@ -216,25 +234,32 @@ class Sim:
         """更新乘客到站"""
         while self.pas_idx < self.line.passenger_pool.shape[0]:
             if self.line.passenger_pool.loc[self.pas_idx, 'arrive_t'] <= self.t:
-                pas = Passenger(
-                    pas_id=self.pas_idx,
-                    start_pos=self.line.passenger_pool.loc[self.pas_idx, 'start_pos'],
-                    start_loc=self.line.passenger_pool.loc[self.pas_idx, 'start_loc'],
-                    arrive_time=self.line.passenger_pool.loc[self.pas_idx, 'arrive_t'],
-                    end_pos=self.line.passenger_pool.loc[self.pas_idx, 'end_pos'],
-                    end_loc=self.line.passenger_pool.loc[self.pas_idx, 'end_loc']
-                )
-                if self.sim_mode in ['baseline', 'single']:
-                    self.line.main_line[pas.start_loc].append(pas)
-                    self.all_passengers[self.pas_idx] = pas
-                else:
-                    if isinstance(pas.start_loc, (int, np.integer)):
+                start_main = self.line.passenger_pool.loc[self.pas_idx, 'start_loc'] \
+                    if isinstance(self.line.passenger_pool.loc[self.pas_idx, 'start_loc'], (int, np.integer)) \
+                    else int(self.line.passenger_pool.loc[self.pas_idx, 'start_loc'].split('#')[0])
+                end_main = self.line.passenger_pool.loc[self.pas_idx, 'end_loc'] \
+                    if isinstance(self.line.passenger_pool.loc[self.pas_idx, 'end_loc'], (int, np.integer)) \
+                    else int(self.line.passenger_pool.loc[self.pas_idx, 'end_loc'].split('#')[0])
+                if end_main > start_main:
+                    pas = Passenger(
+                        pas_id=self.pas_idx,
+                        start_pos=self.line.passenger_pool.loc[self.pas_idx, 'start_pos'],
+                        start_loc=self.line.passenger_pool.loc[self.pas_idx, 'start_loc'],
+                        arrive_time=self.line.passenger_pool.loc[self.pas_idx, 'arrive_t'],
+                        end_pos=self.line.passenger_pool.loc[self.pas_idx, 'end_pos'],
+                        end_loc=self.line.passenger_pool.loc[self.pas_idx, 'end_loc']
+                    )
+                    if self.sim_mode in ['baseline', 'single']:
                         self.line.main_line[pas.start_loc].append(pas)
+                        self.all_passengers[self.pas_idx] = pas
                     else:
-                        assert isinstance(pas.start_loc, str)
-                        main_id, side_id, side_order = pas.start_loc.split('#')
-                        self.line.side_line[f'{main_id}#{side_id}'].side_stations[int(side_order)]['pool'].append(pas)
-                    self.all_passengers[self.pas_idx] = pas
+                        if isinstance(pas.start_loc, (int, np.integer)):
+                            self.line.main_line[pas.start_loc].append(pas)
+                        else:
+                            assert isinstance(pas.start_loc, str)
+                            main_id, side_id, side_order = pas.start_loc.split('#')
+                            self.line.side_line[f'{main_id}#{side_id}'].side_stations[int(side_order)]['pool'].append(pas)
+                        self.all_passengers[self.pas_idx] = pas
             else:
                 break
             self.pas_idx += 1
@@ -1866,7 +1891,7 @@ class Sim:
 
 
 if __name__ == '__main__':
-    line_info = read_in()
+    line_info = read_in(way='total', fractile=0.5)
     start = time.time()
 
     # optimization for single line
@@ -1881,7 +1906,7 @@ if __name__ == '__main__':
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 840, 840, 900, 900, 840, 840, 840, 840, 840, 840, 840, 840, 840, 840, 720, 720, 600, 600]
 
     multi_dec_rule = 'down_first'
-    sim = Sim(**line_info, sim_mode='single', multi_dec_rule=multi_dec_rule, record_time=None)
+    sim = Sim(**line_info, sim_mode='multi', multi_dec_rule=multi_dec_rule, record_time=None)
     sim.print_log = True
     # sim.get_record = None
     # sim.get_record = (9 * 3600, 9.2 * 3600)

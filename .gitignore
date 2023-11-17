@@ -161,4 +161,6 @@ cython_debug/
 
 data/
 
+station_selection/
+
 ea_optimize/result*
