@@ -160,7 +160,7 @@ class Sim:
                 self.update_dep(dec=dep_dec, cap=dep_cap)
 
             # debug phase
-            if self.t == 55030:
+            if self.t == 28148:
                 logging.debug('time debug')
             if self.all_buses[0].loc == '7@0':
                 logging.debug(f'location debug at {self.t}')
@@ -169,7 +169,7 @@ class Sim:
             if '4#2#0#0' in [bus.loc for bus in self.all_buses.values()]:
                 logging.debug(f'bus debug at {self.t}')
 
-            # pas_id = 2
+            # pas_id = 150
             # if pas_id in self.all_passengers.keys():
             #     for bus in self.all_buses.values():
             #         if bus.able is True:
@@ -179,8 +179,8 @@ class Sim:
             # for bus in self.all_buses.values():
             #     if bus.loc == '2#0#0#0' and bus.to_stop is True:
             #         print(bus)
-            # if 103 in self.all_buses.keys():
-            #     print(self.t, self.all_buses[103].loc)
+            # if 54 in self.all_buses.keys():
+            #     print(self.t, self.all_buses[54].comb_state)
 
             # record phase
             if self.get_record is not None:
@@ -728,6 +728,8 @@ class Sim:
                                                 logging.debug(f'bus_id = {cur_bus.bus_id}, ')
                                             down_num = len(down_pas_id_list)
                                             for pas in down_pas_id_list:
+                                                if self.all_passengers[pas] in self.pas_pool:
+                                                    logging.debug('passenger id = {pas} in pas_pool')
                                                 self.all_passengers[pas].down_t = self.t
                                                 self.pas_pool.append(self.all_passengers[pas])
                                                 self.all_passengers[pas].down_loc = main_id
@@ -814,6 +816,8 @@ class Sim:
                                                 down_pas_id_list = [pas.pas_id for pas in down_pas_list]
                                                 down_num_list.append(len(down_pas_id_list))
                                                 for pas in down_pas_id_list:
+                                                    if self.all_passengers[pas] in self.pas_pool:
+                                                        logging.debug('passenger id = {pas} in pas_pool')
                                                     self.all_passengers[pas].down_t = self.t
                                                     self.pas_pool.append(self.all_passengers[pas])
                                                     self.all_passengers[pas].down_loc = main_id
@@ -904,6 +908,8 @@ class Sim:
                                                 self.all_passengers[pas.pas_id].add_bus_wait(seconds=self.stop_time)
                                             pas_list = [pas.pas_id for pas in bus_pas_list if pas not in stay_pas_list]
                                             for pas in pas_list:
+                                                if self.all_passengers[pas] in self.pas_pool:
+                                                    logging.debug('passenger id = {pas} in pas_pool')
                                                 self.all_passengers[pas].down_t = self.t
                                                 self.pas_pool.append(self.all_passengers[pas])
                                                 self.all_passengers[pas].down_loc = f'{main_id}#{side_id}#{side_order}'
@@ -922,10 +928,10 @@ class Sim:
                                             far_up = sum(
                                                 [len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[order][
                                                          'pool'])
-                                                 for order in range(side_order + 1, num_side_stations + 1)])
+                                                 for order in range(side_order, num_side_stations + 1)])
                                             far_down = sum(
                                                 [cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{order}')
-                                                 for order in range(side_order + 1, num_side_stations + 1)])
+                                                 for order in range(side_order, num_side_stations + 1)])
                                             if far_up + far_down < 0.2:  # early-return
                                                 cur_bus.is_returning = True
                                                 cur_bus.loc = f'{main_id}#{side_id}#{round(side_order - 1)}#5'
@@ -966,6 +972,8 @@ class Sim:
                                                 self.all_passengers[pas.pas_id].add_bus_wait(seconds=self.stop_time)
                                             pas_list = [pas.pas_id for pas in bus_pas_list if pas not in stay_pas_list]
                                             for pas in pas_list:
+                                                if self.all_passengers[pas] in self.pas_pool:
+                                                    logging.debug('passenger id = {pas} in pas_pool')
                                                 self.all_passengers[pas].down_t = self.t
                                                 self.pas_pool.append(self.all_passengers[pas])
                                                 self.all_passengers[pas].down_loc = f'{main_id}#{side_id}#{side_order}'
@@ -1264,10 +1272,10 @@ class Sim:
                                         far_up = sum(
                                             [len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[order][
                                                      'pool'])
-                                             for order in range(side_order + 1, num_side_stations + 1)])
+                                             for order in range(side_order, num_side_stations + 1)])
                                         far_down = sum(
                                             [cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{order}')
-                                             for order in range(side_order + 1, num_side_stations + 1)])
+                                             for order in range(side_order, num_side_stations + 1)])
                                         if far_up + far_down < 0.2:  # early-return
                                             cur_bus.is_returning = True
                                             cur_bus.loc = f'{main_id}#{side_id}#{round(side_order - 1)}#5'
@@ -1544,7 +1552,10 @@ class Sim:
                         cur_station = int(cur_bus.loc.split('@')[0])
                         # 不同时sep和comb
                         pot_comb_buses = [b for b in loc_dict[cur_bus.loc] if
-                                          (self.all_buses[b].sep_dec is None) and (self.all_buses[b].comb_dec is None)]
+                                          (self.all_buses[b].sep_dec is None) and (self.all_buses[b].comb_dec is None)
+                                          and (self.all_buses[b].sep_state is None)
+                                          and (self.all_buses[b].comb_state is None)
+                                          and b != cur_bus.bus_id]
                         pot_comb_order = sorted(pot_comb_buses, key=lambda x: self.all_buses[x].time_count,
                                                 reverse=True)
                         for pot_bus in pot_comb_order:
@@ -1610,8 +1621,11 @@ class Sim:
                     cur_station = int(cur_bus.loc.split('#')[0])
                     cur_loc_code = f'{cur_station}#0#5'
                     pot_comb_buses = [b for b in loc_dict[cur_loc_code]
-                                      if (self.all_buses[b].sep_dec is None and self.all_buses[
-                            b].comb_dec is None and b != cur_bus.bus_id)]
+                                      if (self.all_buses[b].sep_dec is None
+                                          and self.all_buses[b].comb_dec is None
+                                          and self.all_buses[b].sep_state is None
+                                          and self.all_buses[b].comb_state is None
+                                          and b != cur_bus.bus_id)]
                     pot_comb_order = sorted(pot_comb_buses, key=lambda x: self.all_buses[x].time_count, reverse=True)
                     for pot_bus in pot_comb_order:
                         if cur_bus.cab_num + self.all_buses[pot_bus].cab_num < 3.2:
@@ -1891,13 +1905,13 @@ class Sim:
 
 
 if __name__ == '__main__':
-    line_info = read_in(way='total', fractile=0.5)
+    line_info = read_in(way='total', fractile=0.25)
     start = time.time()
 
     # optimization for single line
     # plan 1
-    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
-    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
+    line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
+    line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
     # plan 2
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 480, 480, 480, 480, 720, 720, 840, 840, 720, 720, 660, 660, 720, 720, 720, 720]
@@ -1905,7 +1919,7 @@ if __name__ == '__main__':
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 840, 840, 900, 900, 840, 840, 840, 840, 840, 840, 840, 840, 840, 840, 720, 720, 600, 600]
 
-    multi_dec_rule = 'down_first'
+    multi_dec_rule = 'up_first'
     sim = Sim(**line_info, sim_mode='multi', multi_dec_rule=multi_dec_rule, record_time=None)
     sim.print_log = True
     # sim.get_record = None
