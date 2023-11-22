@@ -925,14 +925,25 @@ class Sim:
                                             # early-returning, 无人上下车时提早返回
                                             num_side_stations = \
                                                 len(self.line.side_line[f'{main_id}#{side_id}'].side_stations)
-                                            far_up = sum(
+                                            far_up_exp = sum(
                                                 [len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[order][
                                                          'pool'])
-                                                 for order in range(side_order, num_side_stations + 1)])
-                                            far_down = sum(
+                                                 for order in range(side_order + 1, num_side_stations + 1)])
+                                            far_down_exp = sum(
                                                 [cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{order}')
-                                                 for order in range(side_order, num_side_stations + 1)])
-                                            if far_up + far_down < 0.2:  # early-return
+                                                 for order in range(side_order + 1, num_side_stations + 1)])
+                                            if far_up_exp + far_down_exp < 0.2:  # early-return
+                                                assert cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{side_order}') == 0
+                                                if len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[side_order]['pool']):
+                                                    # 上车
+                                                    while cur_bus.pass_num < cur_bus.max_num and \
+                                                            len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[
+                                                                    side_order]['pool']) > 0:
+                                                        on_pas = \
+                                                            self.line.side_line[f'{main_id}#{side_id}'].side_stations[
+                                                                side_order]['pool'].pop(0)
+                                                        on_pas.on_t = self.t
+                                                        cur_bus.get_on(pas=on_pas)
                                                 cur_bus.is_returning = True
                                                 cur_bus.loc = f'{main_id}#{side_id}#{round(side_order - 1)}#5'
                                                 if side_order > 1.2:
@@ -1269,14 +1280,25 @@ class Sim:
                                         # early-returning, 无人上下车时提早返回
                                         num_side_stations = \
                                             len(self.line.side_line[f'{main_id}#{side_id}'].side_stations)
-                                        far_up = sum(
+                                        far_up_exp = sum(
                                             [len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[order][
                                                      'pool'])
-                                             for order in range(side_order, num_side_stations + 1)])
-                                        far_down = sum(
+                                             for order in range(side_order + 1, num_side_stations + 1)])
+                                        far_down_exp = sum(
                                             [cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{order}')
-                                             for order in range(side_order, num_side_stations + 1)])
-                                        if far_up + far_down < 0.2:  # early-return
+                                             for order in range(side_order + 1, num_side_stations + 1)])
+                                        if far_up_exp + far_down_exp < 0.2:  # early-return
+                                            assert cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{side_order}') == 0
+                                            if len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[side_order]['pool']):
+                                                # 上车
+                                                while cur_bus.pass_num < cur_bus.max_num and \
+                                                        len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[
+                                                                side_order]['pool']) > 0:
+                                                    on_pas = \
+                                                        self.line.side_line[f'{main_id}#{side_id}'].side_stations[
+                                                            side_order]['pool'].pop(0)
+                                                    on_pas.on_t = self.t
+                                                    cur_bus.get_on(pas=on_pas)
                                             cur_bus.is_returning = True
                                             cur_bus.loc = f'{main_id}#{side_id}#{round(side_order - 1)}#5'
                                             if side_order > 1.2:
@@ -1905,7 +1927,7 @@ class Sim:
 
 
 if __name__ == '__main__':
-    line_info = read_in(way='total', fractile=0.25)
+    line_info = read_in(way='total', fractile=None)
     start = time.time()
 
     # optimization for single line
