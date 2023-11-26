@@ -14,7 +14,7 @@ class DepDecider:
         """判断是否发车"""
         if self.mode == 'baseline':
             if cur_t <= LAST_BUS_T:
-                return True if (cur_t - self.last_dep >= DEP_DURATION) else False
+                return True if (cur_t - self.last_dep >= self.dep_duration_list[int(cur_t/3600)]) else False
             else:
                 return False
         elif self.mode == 'single':
