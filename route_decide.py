@@ -13,7 +13,7 @@ class RouteDecider:
 
     def __init__(self, sim_mode: str = 'single'):
         """路线决策器"""
-        assert sim_mode in ['baseline', 'single', 'multi']
+        assert sim_mode in ['baseline', 'single', 'multi', 'multi_order']
         self.mode = sim_mode
 
     def decide_stop_action_baseline(self, cur_bus: Bus, line: Line):
@@ -133,7 +133,7 @@ class RouteDecider:
         :param rule: 决策逻辑, in ['down_first', 'up_first']
         :return: 动作字典(key in ['stop', 'turn', 'return_stop'])
         """
-        assert self.mode == 'multi'
+        assert self.mode in ['multi', 'multi_order']
         main_id, side_id, run_state = map(int, loc.split('#'))
         dec_dict = {}
         if rule == 'down_first':

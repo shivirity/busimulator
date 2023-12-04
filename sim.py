@@ -93,7 +93,7 @@ class Sim:
         self.dep_decider = DepDecider(sim_mode=sim_mode, dep_duration=dep_duration_list, dep_num=dep_num_list)
         self.route_decider = RouteDecider(sim_mode=sim_mode)
 
-        # 仿真模式 in ['baseline', 'single', 'multi']
+        # 仿真模式 in ['baseline', 'single', 'multi', 'multi_order']
         self.sim_mode = sim_mode
 
         # 系统时间
@@ -116,7 +116,7 @@ class Sim:
         self.print_log = False
 
         # 主线+支线决策模式
-        if self.sim_mode == 'multi':
+        if self.sim_mode in ['multi', 'multi_order']:
             self.multi_dec_rule = kwargs['multi_dec_rule']
 
         # 车辆状态输出
@@ -220,7 +220,7 @@ class Sim:
             self.run_step()
 
             # mode=single中出站后的结合/分离决策
-            if self.sim_mode in ['single', 'multi']:
+            if self.sim_mode in ['single', 'multi', 'multi_order']:
                 self.assign_reorg()
 
             # 系统时间步进
@@ -284,7 +284,7 @@ class Sim:
                             bus_group=group, bus_info=self.all_buses, line=self.line
                         )
                         self.apply_action_in_assign_single(bus_stop_dec=bus_stop_dec)
-        else:  # sim_mode == 'multi'
+        else:  # sim_mode == 'multi' or 'multi_order'
             loc_dict = self.get_loc_dict()  # 只选择able=True的车辆
             for loc in loc_dict.keys():
                 if loc.endswith('#0'):
@@ -681,7 +681,7 @@ class Sim:
 
                                 cur_bus.sort_passengers(station=int(loc_1), pas_info=self.all_passengers)
 
-        elif self.sim_mode == 'multi':  # multi mode
+        elif self.sim_mode in ['multi', 'multi_order']:  # multi mode
             have_decided_list = []
             for bus_id in available_bus:
                 if bus_id in have_decided_list:
@@ -786,7 +786,7 @@ class Sim:
                                                     )
 
                                                 cur_bus.sort_passengers(
-                                                    station=main_id, pas_info=self.all_passengers, mode='multi')
+                                                    station=main_id, pas_info=self.all_passengers, mode=self.sim_mode)
 
                                         else:  # 多辆车同时停留
                                             for left_bus in left_bus_list:
@@ -887,7 +887,7 @@ class Sim:
                                                         )
 
                                                     sel_bus.sort_passengers(
-                                                        station=main_id, pas_info=self.all_passengers, mode='multi')
+                                                        station=main_id, pas_info=self.all_passengers, mode=self.sim_mode)
                                                 have_decided_list.append(dec_list[ind])
                                     else:
                                         pass
@@ -1101,7 +1101,7 @@ class Sim:
                                                     )
 
                                                 cur_bus.sort_passengers(
-                                                    station=main_id, pas_info=self.all_passengers, mode='multi')
+                                                    station=main_id, pas_info=self.all_passengers, mode=self.sim_mode)
 
                                         else:  # 多辆车同时停留
                                             for left_bus in left_bus_list:
@@ -1176,7 +1176,7 @@ class Sim:
                                                         )
 
                                                     sel_bus.sort_passengers(
-                                                        station=main_id, pas_info=self.all_passengers, mode='multi')
+                                                        station=main_id, pas_info=self.all_passengers, mode=self.sim_mode)
                                                 have_decided_list.append(dec_list[ind])
                                     else:
                                         pass
@@ -1467,9 +1467,9 @@ class Sim:
                                             self.all_cabs[cab]['dist'] += self.line.dist_list[main_id - 1]  # 记录累计距离
 
                                         new_bus_front.sort_passengers(
-                                            station=main_id, pas_info=self.all_passengers, mode='multi')
+                                            station=main_id, pas_info=self.all_passengers, mode=self.sim_mode)
                                         new_bus_rear.sort_passengers(
-                                            station=main_id, pas_info=self.all_passengers, mode='multi')
+                                            station=main_id, pas_info=self.all_passengers, mode=self.sim_mode)
 
                                     elif cur_bus.comb_state is not None:
                                         comb_bus_id, comb_order = cur_bus.comb_state
@@ -1514,7 +1514,7 @@ class Sim:
                                         for cab in new_bus.cab_id:
                                             self.all_cabs[cab]['dist'] += self.line.dist_list[main_id - 1]  # 记录累计距离
                                         new_bus.sort_passengers(
-                                            station=main_id, pas_info=self.all_passengers, mode='multi')
+                                            station=main_id, pas_info=self.all_passengers, mode=self.sim_mode)
 
                                     else:
                                         cur_bus.loc, cur_bus.run_next = f'{main_id + 1}#0#0#0', None
@@ -1545,7 +1545,7 @@ class Sim:
                                         self.line.side_line[f'{main_id}#{side_id}'].dist_list[side_order]
 
     def assign_reorg(self):
-        """结合和分离决策(mode='single' or 'multi')"""
+        """结合和分离决策(mode='single' or 'multi' or 'multi_order')"""
         if self.sim_mode == 'single':
             available_bus = [b.bus_id for b in self.all_buses.values() if (b.state != 'end') and (b.able is True)]
             for bus in available_bus:
@@ -1613,7 +1613,7 @@ class Sim:
                     cur_bus.to_dec_trans = False
                 else:
                     pass
-        else:  # sim_mode == 'multi'
+        else:  # sim_mode == 'multi' or 'multi_order'
             available_dec_bus = [b.bus_id for b in self.all_buses.values()
                                  if (b.state != 'end') and (b.able is True) and (b.to_dec_trans is True)]
             for bus in available_dec_bus:
@@ -1728,7 +1728,7 @@ class Sim:
                 cab_num=dec, max_num_list=[cap for _ in range(dec)],
                 cab_id=list(range(cur_cab_id, cur_cab_id + dec)), bus_id=cur_bus_id, able=True
             )
-        else:  # sim_mode == 'multi'
+        else:  # sim_mode == 'multi' or 'multi_order'
             self.all_buses[cur_bus_id] = Bus(
                 cab_num=dec, max_num_list=[cap for _ in range(dec)],
                 cab_id=list(range(cur_cab_id, cur_cab_id + dec)), bus_id=cur_bus_id, able=True,
@@ -1932,18 +1932,18 @@ if __name__ == '__main__':
 
     # optimization for single line
     # plan 1
-    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
-    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
+    line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
+    line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
     # plan 2
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 480, 480, 480, 480, 720, 720, 840, 840, 720, 720, 660, 660, 720, 720, 720, 720]
     # plan 3
-    line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1]
-    line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 840, 840, 900, 900, 840, 840, 840, 840, 840, 840, 840, 840, 840, 840, 720, 720, 600, 600]
+    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1]
+    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 840, 840, 900, 900, 840, 840, 840, 840, 840, 840, 840, 840, 840, 840, 720, 720, 600, 600]
 
     multi_dec_rule = 'down_first'
-    sim = Sim(**line_info, sim_mode='multi', multi_dec_rule=multi_dec_rule, record_time=None)
-    sim.print_log = True
+    sim = Sim(**line_info, sim_mode='multi_order', multi_dec_rule=multi_dec_rule, record_time=None)
+    sim.print_log = False
     # sim.get_record = None
     # sim.get_record = (9 * 3600, 9.2 * 3600)
     sim.run()

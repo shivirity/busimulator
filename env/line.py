@@ -4,7 +4,7 @@ import random
 import numpy as np
 import pandas as pd
 
-from consts import DIS_FIX
+from consts import DIS_FIX, PASSENGER_SPEED, INTERVAL, NUM_THRESHOLD
 from env.passenger import get_distance
 
 random.seed(42)
@@ -30,7 +30,7 @@ class Line:
 
         # 生成主线
         self.create_main_line()
-        if self.mode == 'multi':
+        if self.mode in ['multi', 'multi_order']:
             # 生成支线
             self.create_side_line(side_line_info=side_line_info)
 
@@ -61,6 +61,194 @@ class Line:
             for i in range(side_line_info.shape[0])
         }
 
+    def get_chain_data(self, pass_info: pd.DataFrame, interval: int, num_threshold: int):
+        """
+        数据处理+拥挤程度标注，拥挤则人员在支线等待，不拥挤则人员前往主线乘车
+
+        :param pass_info: 乘客信息
+        :param interval: 上车时间归类间隔 (in seconds)
+        :param num_threshold: 间隔内上车人数下界
+        :return:
+        """
+        # data preprocessing
+        pass_info['start_time'] = pass_info.apply(
+            (lambda x: int((x['up_time'] - 20191015000000) / 10000) * 3600 +
+                       int(((x['up_time'] - 20191015000000) % 10000) / 100) * 60 +
+                       (x['up_time'] - 20191015000000) % 100 - self.get_random_t()), axis=1)
+        # get crowd mark
+        pass_info['crowd_mark'] = -1
+        for i in range(pass_info.shape[0]):
+            if pass_info.loc[i, 'crowd_mark'] < -0.1:
+                up_station = pass_info.loc[i, 'current_location']
+                up_time = pass_info.loc[i, 'start_time']
+                up_time_lb, up_time_ub = (up_time // interval) * interval, (up_time // interval + 1) * interval
+                tmp_df = pass_info[(pass_info['current_location'] == up_station) & (up_time_lb <= pass_info['start_time']) & (pass_info['start_time'] < up_time_ub)]
+                for ind in tmp_df.index:
+                    if tmp_df.shape[0] >= num_threshold:
+                        assert pass_info.loc[ind, 'crowd_mark'] in [-1, 1]
+                        pass_info.loc[ind, 'crowd_mark'] = 1
+                    else:
+                        assert pass_info.loc[ind, 'crowd_mark'] in [-1, 0]
+                        pass_info.loc[ind, 'crowd_mark'] = 0
+            else:
+                pass  # do nothing
+        print(f"number of p waiting at side lines: {sum(pass_info['crowd_mark'])}")
+
+        return pass_info
+
+    def get_side_line_up_and_down_loc(self, up_lat: int, up_lon: int, down_lat: int, down_lon: int,
+                                      ori_lat: int, ori_lon: int, fin_lat: int, fin_lon: int):
+
+        # start location
+        if (up_lat, up_lon) in self.loc_list:
+            up_station = self.loc_list.index((up_lat, up_lon)) + 1
+            if up_station == 1:
+                up_loc = up_station
+            else:
+                dist_to_side = []
+                for side in [1, 2]:
+                    for side_id in range(1,
+                                         len(self.side_line[
+                                                 str(up_station) + '#' + str(side)].side_stations) + 1):
+                        side_lat, side_lon = \
+                            self.side_line[str(up_station) + '#' + str(side)].side_stations[side_id]['lat'], \
+                            self.side_line[str(up_station) + '#' + str(side)].side_stations[side_id]['lon']
+                        dist_to_side.append(
+                            get_distance(lat1=ori_lat, lon1=ori_lon, lat2=side_lat, lon2=side_lon))
+                dist_to_side.append(get_distance(lat1=ori_lat, lon1=ori_lon, lat2=up_lat, lon2=up_lon))
+                min_ind = np.argmin(dist_to_side)
+                side_1_len, side_2_len = len(self.side_line[str(up_station) + '#1'].side_stations), \
+                                         len(self.side_line[str(up_station) + '#2'].side_stations)
+                if min_ind < side_1_len:
+                    up_loc = str(up_station) + '#1#' + str(min_ind + 1)
+                elif min_ind < side_1_len + side_2_len:
+                    up_loc = str(up_station) + '#2#' + str(min_ind + 1 - side_1_len)
+                else:
+                    up_loc = up_station
+        else:
+            logging.info('main stations has changed.')
+            main_station_dist = []
+            for main_station_pos in self.loc_list:
+                main_station_dist.append(
+                    get_distance(lat1=ori_lat, lon1=ori_lon, lat2=main_station_pos[0], lon2=main_station_pos[1])
+                )
+            min_two = heapq.nsmallest(2, main_station_dist)
+            min_ind = [main_station_dist.index(i) + 1 for i in min_two]
+            dist_to_side = []
+            for main_station in min_ind:
+                for side in [1, 2]:
+                    for side_id in range(1,
+                                         len(self.side_line[
+                                                 str(main_station) + '#' + str(side)].side_stations) + 1):
+                        side_lat, side_lon = \
+                            self.side_line[str(main_station) + '#' + str(side)].side_stations[side_id]['lat'], \
+                            self.side_line[str(main_station) + '#' + str(side)].side_stations[side_id]['lon']
+                        dist_to_side.append(
+                            get_distance(lat1=ori_lat, lon1=ori_lon, lat2=side_lat, lon2=side_lon))
+            main_lat_1, main_lon_1 = self.loc_list[min_ind[0] - 1]
+            main_lat_2, main_lon_2 = self.loc_list[min_ind[1] - 1]
+            dist_to_side.append(get_distance(lat1=ori_lat, lon1=ori_lon, lat2=main_lat_1, lon2=main_lon_1))
+            dist_to_side.append(get_distance(lat1=ori_lat, lon1=ori_lon, lat2=main_lat_2, lon2=main_lon_2))
+            min_side_ind = np.argmin(dist_to_side)
+            side_1_1_len, side_1_2_len = len(self.side_line[str(min_ind[0]) + '#1'].side_stations), \
+                                         len(self.side_line[str(min_ind[0]) + '#2'].side_stations)
+            side_2_1_len, side_2_2_len = len(self.side_line[str(min_ind[1]) + '#1'].side_stations), \
+                                         len(self.side_line[str(min_ind[1]) + '#2'].side_stations)
+            if min_side_ind < side_1_1_len:
+                up_loc = str(min_ind[0]) + '#1#' + str(min_side_ind + 1)
+            elif min_side_ind < side_1_1_len + side_1_2_len:
+                up_loc = str(min_ind[0]) + '#2#' + str(min_side_ind + 1 - side_1_1_len)
+            elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len:
+                up_loc = str(min_ind[1]) + '#1#' + str(min_side_ind + 1 - side_1_1_len - side_1_2_len)
+            elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len + side_2_2_len:
+                up_loc = str(min_ind[1]) + '#2#' + str(
+                    min_side_ind + 1 - side_1_1_len - side_1_2_len - side_2_1_len)
+            elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len + side_2_2_len + 1:
+                up_loc = min_ind[0]
+            else:
+                up_loc = min_ind[1]
+
+        # down location
+        if (down_lat, down_lon) in self.loc_list:
+            down_station = self.loc_list.index((down_lat, down_lon)) + 1
+            dist_to_side = []
+            for side in [1, 2]:
+                for side_id in range(1,
+                                     len(self.side_line[
+                                             str(down_station) + '#' + str(side)].side_stations) + 1):
+                    side_lat, side_lon = \
+                        self.side_line[str(down_station) + '#' + str(side)].side_stations[side_id]['lat'], \
+                        self.side_line[str(down_station) + '#' + str(side)].side_stations[side_id]['lon']
+                    dist_to_side.append(get_distance(lat1=fin_lat, lon1=fin_lon, lat2=side_lat, lon2=side_lon))
+            dist_to_side.append(get_distance(lat1=fin_lat, lon1=fin_lon, lat2=down_lat, lon2=down_lon))
+            min_ind = np.argmin(dist_to_side)
+            side_1_len, side_2_len = len(self.side_line[str(down_station) + '#1'].side_stations), \
+                                     len(self.side_line[str(down_station) + '#2'].side_stations)
+            if min_ind < side_1_len:
+                down_loc = str(down_station) + '#1#' + str(min_ind + 1)
+            elif min_ind < side_1_len + side_2_len:
+                down_loc = str(down_station) + '#2#' + str(min_ind + 1 - side_1_len)
+            else:
+                down_loc = down_station
+        else:
+            logging.info('main stations has changed.')
+            main_station_dist = []
+            for main_station_pos in self.loc_list:
+                main_station_dist.append(
+                    get_distance(lat1=ori_lat, lon1=ori_lon, lat2=main_station_pos[0], lon2=main_station_pos[1])
+                )
+            min_two = heapq.nsmallest(2, main_station_dist)
+            min_ind = [main_station_dist.index(i) + 1 for i in min_two]
+            dist_to_side = []
+            for main_station in min_ind:
+                for side in [1, 2]:
+                    for side_id in range(1,
+                                         len(self.side_line[
+                                                 str(main_station) + '#' + str(side)].side_stations) + 1):
+                        side_lat, side_lon = \
+                            self.side_line[str(main_station) + '#' + str(side)].side_stations[side_id]['lat'], \
+                            self.side_line[str(main_station) + '#' + str(side)].side_stations[side_id]['lon']
+                        dist_to_side.append(
+                            get_distance(lat1=fin_lat, lon1=fin_lon, lat2=side_lat, lon2=side_lon))
+            main_lat_1, main_lon_1 = self.loc_list[min_ind[0] - 1]
+            main_lat_2, main_lon_2 = self.loc_list[min_ind[1] - 1]
+            dist_to_side.append(get_distance(lat1=fin_lat, lon1=fin_lon, lat2=main_lat_1, lon2=main_lon_1))
+            dist_to_side.append(get_distance(lat1=fin_lat, lon1=fin_lon, lat2=main_lat_2, lon2=main_lon_2))
+            min_side_ind = np.argmin(dist_to_side)
+            side_1_1_len, side_1_2_len = len(self.side_line[str(min_ind[0]) + '#1'].side_stations), \
+                                         len(self.side_line[str(min_ind[0]) + '#2'].side_stations)
+            side_2_1_len, side_2_2_len = len(self.side_line[str(min_ind[1]) + '#1'].side_stations), \
+                                         len(self.side_line[str(min_ind[1]) + '#2'].side_stations)
+            if min_side_ind < side_1_1_len:
+                down_loc = str(min_ind[0]) + '#1#' + str(min_side_ind + 1)
+            elif min_side_ind < side_1_1_len + side_1_2_len:
+                down_loc = str(min_ind[0]) + '#2#' + str(min_side_ind + 1 - side_1_1_len)
+            elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len:
+                down_loc = str(min_ind[1]) + '#1#' + str(min_side_ind + 1 - side_1_1_len - side_1_2_len)
+            elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len + side_2_2_len:
+                down_loc = str(min_ind[1]) + '#2#' + str(
+                    min_side_ind + 1 - side_1_1_len - side_1_2_len - side_2_1_len)
+            elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len + side_2_2_len + 1:
+                down_loc = min_ind[0]
+            else:
+                down_loc = min_ind[1]
+
+        return up_loc, down_loc
+
+    def get_new_up_t(self, arr_loc, sta_lat: float, sta_lon: float, up_t: int):
+        """对于在支线上下车的乘客， 更新到站时间"""
+        if isinstance(arr_loc, (int, np.integer)):
+            return None
+        else:
+            main_id, side_id, side_order = map(int, arr_loc.split('#'))
+            ori_arr_lat, ori_arr_lon = self.loc_list[main_id - 1]
+            arr_lat = self.side_line[str(main_id) + '#' + str(side_id)].side_stations[side_order]['lat']
+            arr_lon = self.side_line[str(main_id) + '#' + str(side_id)].side_stations[side_order]['lon']
+        ori_arr_dist = get_distance(lat1=sta_lat, lon1=sta_lon, lat2=ori_arr_lat, lon2=ori_arr_lon)
+        arr_dist = get_distance(lat1=sta_lat, lon1=sta_lon, lat2=arr_lat, lon2=arr_lon)
+        new_up_t = up_t - round((ori_arr_dist - arr_dist) / PASSENGER_SPEED)
+        return new_up_t
+
     def get_passenger_info(self):
         """
         加载所有乘客信息, 包括起始站点和起始时间, 到达站点后 reveal
@@ -70,149 +258,40 @@ class Line:
         """
         pass_info = pd.read_csv(r'D:\mofangbus\busimulator\data\line_810\chain_data.csv', encoding='utf-8')
         pass_info = pass_info[pass_info['direction'] == self.direc].reset_index(drop=True)
+        pass_info = self.get_chain_data(pass_info=pass_info, interval=INTERVAL, num_threshold=NUM_THRESHOLD)
         s_pos_l, s_t_l, s_loc_l, e_loc_l, e_pos_l = [], [], [], [], []
         for i in range(pass_info.shape[0]):
-            up_lat, up_lon, p, up_station, down_station = pass_info.loc[i, 'up_lat'], pass_info.loc[i, 'up_lon'], \
-                                                          pass_info.loc[i, 'up_time'] - 20191015000000, pass_info.loc[
-                                                              i, 'current_location'], \
-                                                          pass_info.loc[i, 'down_location']
+            up_lat, up_lon, up_station, down_station = pass_info.loc[i, 'up_lat'], pass_info.loc[i, 'up_lon'], \
+                                                       pass_info.loc[i, 'current_location'], \
+                                                       pass_info.loc[i, 'down_location']
             down_lat, down_lon = pass_info.loc[i, 'down_lat'], pass_info.loc[i, 'down_lon']
-            up_t = int(p / 10000) * 3600 + int((p % 10000) / 100) * 60 + p % 100
-            up_t -= self.get_random_t()
+            # up_t = int(p / 10000) * 3600 + int((p % 10000) / 100) * 60 + p % 100
+            # up_t -= self.get_random_t()
+            up_t = pass_info.loc[i, 'start_time']
             ori_lat, ori_lon = self.get_random_pos(cen_lat=up_lat, cen_lon=up_lon)  # 随机生成初始出发坐标
             fin_lat, fin_lon = self.get_random_pos(cen_lat=down_lat, cen_lon=down_lon)  # 随机生成终点结束坐标
             # baseline and 单线优化
             if self.mode in ['baseline', 'single']:
-                up_loc, down_loc = self.station_list.index(up_station)+1, self.station_list.index(down_station)+1
-            else:  # 主线+支线
-                # start location
-                if (up_lat, up_lon) in self.loc_list:
-                    up_station = self.loc_list.index((up_lat, up_lon)) + 1
-                    if up_station == 1:
-                        up_loc = up_station
-                    else:
-                        dist_to_side = []
-                        for side in [1, 2]:
-                            for side_id in range(1,
-                                                 len(self.side_line[str(up_station) + '#' + str(side)].side_stations) + 1):
-                                side_lat, side_lon = \
-                                    self.side_line[str(up_station) + '#' + str(side)].side_stations[side_id]['lat'], \
-                                    self.side_line[str(up_station) + '#' + str(side)].side_stations[side_id]['lon']
-                                dist_to_side.append(get_distance(lat1=ori_lat, lon1=ori_lon, lat2=side_lat, lon2=side_lon))
-                        dist_to_side.append(get_distance(lat1=ori_lat, lon1=ori_lon, lat2=up_lat, lon2=up_lon))
-                        min_ind = np.argmin(dist_to_side)
-                        side_1_len, side_2_len = len(self.side_line[str(up_station) + '#1'].side_stations), \
-                                                 len(self.side_line[str(up_station) + '#2'].side_stations)
-                        if min_ind < side_1_len:
-                            up_loc = str(up_station) + '#1#' + str(min_ind + 1)
-                        elif min_ind < side_1_len + side_2_len:
-                            up_loc = str(up_station) + '#2#' + str(min_ind + 1 - side_1_len)
-                        else:
-                            up_loc = up_station
-                else:
-                    logging.info('main stations has changed.')
-                    main_station_dist = []
-                    for main_station_pos in self.loc_list:
-                        main_station_dist.append(
-                            get_distance(lat1=ori_lat, lon1=ori_lon, lat2=main_station_pos[0], lon2=main_station_pos[1])
-                        )
-                    min_two = heapq.nsmallest(2, main_station_dist)
-                    min_ind = [main_station_dist.index(i) + 1 for i in min_two]
-                    dist_to_side = []
-                    for main_station in min_ind:
-                        for side in [1, 2]:
-                            for side_id in range(1,
-                                                 len(self.side_line[
-                                                         str(main_station) + '#' + str(side)].side_stations) + 1):
-                                side_lat, side_lon = \
-                                    self.side_line[str(main_station) + '#' + str(side)].side_stations[side_id]['lat'], \
-                                    self.side_line[str(main_station) + '#' + str(side)].side_stations[side_id]['lon']
-                                dist_to_side.append(
-                                    get_distance(lat1=ori_lat, lon1=ori_lon, lat2=side_lat, lon2=side_lon))
-                    main_lat_1, main_lon_1 = self.loc_list[min_ind[0] - 1]
-                    main_lat_2, main_lon_2 = self.loc_list[min_ind[1] - 1]
-                    dist_to_side.append(get_distance(lat1=ori_lat, lon1=ori_lon, lat2=main_lat_1, lon2=main_lon_1))
-                    dist_to_side.append(get_distance(lat1=ori_lat, lon1=ori_lon, lat2=main_lat_2, lon2=main_lon_2))
-                    min_side_ind = np.argmin(dist_to_side)
-                    side_1_1_len, side_1_2_len = len(self.side_line[str(min_ind[0]) + '#1'].side_stations), \
-                                                 len(self.side_line[str(min_ind[0]) + '#2'].side_stations)
-                    side_2_1_len, side_2_2_len = len(self.side_line[str(min_ind[1]) + '#1'].side_stations), \
-                                                 len(self.side_line[str(min_ind[1]) + '#2'].side_stations)
-                    if min_side_ind < side_1_1_len:
-                        up_loc = str(min_ind[0]) + '#1#' + str(min_side_ind + 1)
-                    elif min_side_ind < side_1_1_len + side_1_2_len:
-                        up_loc = str(min_ind[0]) + '#2#' + str(min_side_ind + 1 - side_1_1_len)
-                    elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len:
-                        up_loc = str(min_ind[1]) + '#1#' + str(min_side_ind + 1 - side_1_1_len - side_1_2_len)
-                    elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len + side_2_2_len:
-                        up_loc = str(min_ind[1]) + '#2#' + str(min_side_ind + 1 - side_1_1_len - side_1_2_len - side_2_1_len)
-                    elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len + side_2_2_len + 1:
-                        up_loc = min_ind[0]
-                    else:
-                        up_loc = min_ind[1]
-
-                # down location
-                if (down_lat, down_lon) in self.loc_list:
-                    down_station = self.loc_list.index((down_lat, down_lon)) + 1
-                    dist_to_side = []
-                    for side in [1, 2]:
-                        for side_id in range(1,
-                                             len(self.side_line[str(down_station) + '#' + str(side)].side_stations) + 1):
-                            side_lat, side_lon = \
-                                self.side_line[str(down_station) + '#' + str(side)].side_stations[side_id]['lat'], \
-                                self.side_line[str(down_station) + '#' + str(side)].side_stations[side_id]['lon']
-                            dist_to_side.append(get_distance(lat1=fin_lat, lon1=fin_lon, lat2=side_lat, lon2=side_lon))
-                    dist_to_side.append(get_distance(lat1=fin_lat, lon1=fin_lon, lat2=down_lat, lon2=down_lon))
-                    min_ind = np.argmin(dist_to_side)
-                    side_1_len, side_2_len = len(self.side_line[str(down_station) + '#1'].side_stations), \
-                                             len(self.side_line[str(down_station) + '#2'].side_stations)
-                    if min_ind < side_1_len:
-                        down_loc = str(down_station) + '#1#' + str(min_ind + 1)
-                    elif min_ind < side_1_len + side_2_len:
-                        down_loc = str(down_station) + '#2#' + str(min_ind + 1 - side_1_len)
-                    else:
-                        down_loc = down_station
-                else:
-                    logging.info('main stations has changed.')
-                    main_station_dist = []
-                    for main_station_pos in self.loc_list:
-                        main_station_dist.append(
-                            get_distance(lat1=ori_lat, lon1=ori_lon, lat2=main_station_pos[0], lon2=main_station_pos[1])
-                        )
-                    min_two = heapq.nsmallest(2, main_station_dist)
-                    min_ind = [main_station_dist.index(i) + 1 for i in min_two]
-                    dist_to_side = []
-                    for main_station in min_ind:
-                        for side in [1, 2]:
-                            for side_id in range(1,
-                                                 len(self.side_line[
-                                                         str(main_station) + '#' + str(side)].side_stations) + 1):
-                                side_lat, side_lon = \
-                                    self.side_line[str(main_station) + '#' + str(side)].side_stations[side_id]['lat'], \
-                                    self.side_line[str(main_station) + '#' + str(side)].side_stations[side_id]['lon']
-                                dist_to_side.append(
-                                    get_distance(lat1=fin_lat, lon1=fin_lon, lat2=side_lat, lon2=side_lon))
-                    main_lat_1, main_lon_1 = self.loc_list[min_ind[0] - 1]
-                    main_lat_2, main_lon_2 = self.loc_list[min_ind[1] - 1]
-                    dist_to_side.append(get_distance(lat1=fin_lat, lon1=fin_lon, lat2=main_lat_1, lon2=main_lon_1))
-                    dist_to_side.append(get_distance(lat1=fin_lat, lon1=fin_lon, lat2=main_lat_2, lon2=main_lon_2))
-                    min_side_ind = np.argmin(dist_to_side)
-                    side_1_1_len, side_1_2_len = len(self.side_line[str(min_ind[0]) + '#1'].side_stations), \
-                                                 len(self.side_line[str(min_ind[0]) + '#2'].side_stations)
-                    side_2_1_len, side_2_2_len = len(self.side_line[str(min_ind[1]) + '#1'].side_stations), \
-                                                 len(self.side_line[str(min_ind[1]) + '#2'].side_stations)
-                    if min_side_ind < side_1_1_len:
-                        down_loc = str(min_ind[0]) + '#1#' + str(min_side_ind + 1)
-                    elif min_side_ind < side_1_1_len + side_1_2_len:
-                        down_loc = str(min_ind[0]) + '#2#' + str(min_side_ind + 1 - side_1_1_len)
-                    elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len:
-                        down_loc = str(min_ind[1]) + '#1#' + str(min_side_ind + 1 - side_1_1_len - side_1_2_len)
-                    elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len + side_2_2_len:
-                        down_loc = str(min_ind[1]) + '#2#' + str(min_side_ind + 1 - side_1_1_len - side_1_2_len - side_2_1_len)
-                    elif min_side_ind < side_1_1_len + side_1_2_len + side_2_1_len + side_2_2_len + 1:
-                        down_loc = min_ind[0]
-                    else:
-                        down_loc = min_ind[1]
+                up_loc, down_loc = self.station_list.index(up_station) + 1, self.station_list.index(down_station) + 1
+            elif self.mode == 'multi':  # 主线+支线
+                up_loc, down_loc = self.get_side_line_up_and_down_loc(up_lat=up_lat, up_lon=up_lon, down_lat=down_lat,
+                                                                      down_lon=down_lon, ori_lat=ori_lat,
+                                                                      ori_lon=ori_lon, fin_lat=fin_lat, fin_lon=fin_lon)
+                new_up_t = self.get_new_up_t(arr_loc=up_loc, sta_lat=ori_lat, sta_lon=ori_lon, up_t=up_t)
+                if new_up_t is not None:
+                    up_t = new_up_t
+            else:
+                if pass_info.loc[i, 'crowd_mark'] == 1:  # 支线
+                    up_loc, down_loc = self.get_side_line_up_and_down_loc(up_lat=up_lat, up_lon=up_lon,
+                                                                          down_lat=down_lat,
+                                                                          down_lon=down_lon, ori_lat=ori_lat,
+                                                                          ori_lon=ori_lon, fin_lat=fin_lat,
+                                                                          fin_lon=fin_lon)
+                    new_up_t = self.get_new_up_t(arr_loc=up_loc, sta_lat=ori_lat, sta_lon=ori_lon, up_t=up_t)
+                    if new_up_t is not None:
+                        up_t = new_up_t
+                else:  # 主线
+                    up_loc, down_loc = self.station_list.index(up_station) + 1, self.station_list.index(down_station) + 1
 
             s_pos_l.append((ori_lat, ori_lon))
             s_t_l.append(up_t)
@@ -274,17 +353,19 @@ class SideLine:
                 lat1=start_lat, lon1=start_lon, lat2=self.side_stations[1]['lat'], lon2=self.side_stations[1]['lon']
             ) if i == 0 else
             get_distance(
-                lat1=self.side_stations[i]['lat'], lon1=self.side_stations[i]['lon'], lat2=self.side_stations[i+1]['lat'], lon2=self.side_stations[i+1]['lon']
-            ) for i in range(self.sep_num-1)
+                lat1=self.side_stations[i]['lat'], lon1=self.side_stations[i]['lon'],
+                lat2=self.side_stations[i + 1]['lat'], lon2=self.side_stations[i + 1]['lon']
+            ) for i in range(self.sep_num - 1)
         ]
 
         self.time_list = [
             (get_distance(
                 lat1=start_lat, lon1=start_lon, lat2=self.side_stations[1]['lat'], lon2=self.side_stations[1]['lon']
-            ) - DIS_FIX) / main_speed_list[main_id-1] if i == 0 else
+            ) - DIS_FIX) / main_speed_list[main_id - 1] if i == 0 else
             (get_distance(
-                lat1=self.side_stations[i]['lat'], lon1=self.side_stations[i]['lon'], lat2=self.side_stations[i+1]['lat'], lon2=self.side_stations[i+1]['lon']
-            ) - DIS_FIX) / main_speed_list[main_id-1] for i in range(self.sep_num-1)
+                lat1=self.side_stations[i]['lat'], lon1=self.side_stations[i]['lon'],
+                lat2=self.side_stations[i + 1]['lat'], lon2=self.side_stations[i + 1]['lon']
+            ) - DIS_FIX) / main_speed_list[main_id - 1] for i in range(self.sep_num - 1)
         ]
 
 

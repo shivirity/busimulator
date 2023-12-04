@@ -2,6 +2,15 @@ import numpy as np
 from env.passenger import Passenger
 
 
+def get_main_line_id(location: str):
+    """获取乘客上下车地点的主线编号"""
+    if isinstance(location, (int, np.integer)):
+        return location
+    else:
+        main_id, _, __ = map(int, location.split('#'))
+        return main_id
+
+
 class Bus:
 
     def __init__(self, cab_num: int, max_num_list: list, cab_id: list, bus_id: int, able: bool,
@@ -166,7 +175,45 @@ class Bus:
                     assert len(self.pass_list) == self.cab_num, f'{self.pass_list}, {self.cab_num}'
                     return
         else:
-            pass
+            assert mode in ['multi', 'multi_order']
+            if self.cab_num == 1:
+                return
+            elif self.pass_num == 0:
+                return
+            else:
+                pas_list = [i.pas_id for j in self.pass_list for i in j]
+                sorted_pas_list = sorted(pas_list, key=lambda x: get_main_line_id(location=pas_info[x].end_loc) - station, reverse=True)  # ids
+                num_behind_list = [ids for ids in sorted_pas_list if
+                                   get_main_line_id(location=pas_info[ids].end_loc) - station <= num_behind]  # ids
+                if len(sorted_pas_list) - len(num_behind_list) >= sum(self.max_num_list[:-1]):
+                    new_pas_list, new_cab, idx = [], [], 0
+                    while idx < sum(self.max_num_list[:-1]):
+                        new_cab.append(pas_info[sorted_pas_list[idx]])
+                        if len(new_cab) == self.max_num_list[0]:
+                            new_pas_list.append(list(new_cab))
+                            new_cab = []
+                        idx += 1
+                    new_pas_list.append([pas_info[pas] for pas in sorted_pas_list[idx:]])
+                    self.pass_list = new_pas_list
+                    assert len(self.pass_list) == self.cab_num, f'{len(self.pass_list)}, {self.cab_num}'
+                    return
+                else:
+                    new_pas_list, new_cab, idx = [], [], 0
+                    while idx < len(sorted_pas_list) - len(num_behind_list):
+                        new_cab.append(pas_info[sorted_pas_list[idx]])
+                        if len(new_cab) == self.max_num_list[0]:
+                            new_pas_list.append(list(new_cab))
+                            new_cab = []
+                        idx += 1
+                    new_pas_list.append(list(new_cab))
+                    assert len(new_pas_list) <= self.cab_num - 1
+                    if len(new_pas_list) < self.cab_num - 1:
+                        while len(new_pas_list) < self.cab_num - 1:
+                            new_pas_list.append([])
+                    new_pas_list.append([pas_info[pas] for pas in num_behind_list])
+                    self.pass_list = new_pas_list
+                    assert len(self.pass_list) == self.cab_num, f'{self.pass_list}, {self.cab_num}'
+                    return
 
     def get_off_pas_num(self, s_station: int, e_station: int):
         """
