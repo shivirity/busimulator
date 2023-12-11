@@ -92,7 +92,7 @@ class Line:
                         pass_info.loc[ind, 'crowd_mark'] = 0
             else:
                 pass  # do nothing
-        print(f"number of p waiting at side lines: {sum(pass_info['crowd_mark'])}")
+        print(f"number of p waiting at side lines: {sum(pass_info['crowd_mark'])}/{pass_info.shape[0]}={sum(pass_info['crowd_mark'])/pass_info.shape[0]}")
 
         return pass_info
 
@@ -291,7 +291,17 @@ class Line:
                     if new_up_t is not None:
                         up_t = new_up_t
                 else:  # 主线
-                    up_loc, down_loc = self.station_list.index(up_station) + 1, self.station_list.index(down_station) + 1
+                    if up_station in self.station_list and down_station in self.station_list:
+                        up_loc, down_loc = self.station_list.index(up_station) + 1, self.station_list.index(down_station) + 1
+                    else:
+                        up_loc, down_loc = self.get_side_line_up_and_down_loc(up_lat=up_lat, up_lon=up_lon,
+                                                                              down_lat=down_lat,
+                                                                              down_lon=down_lon, ori_lat=ori_lat,
+                                                                              ori_lon=ori_lon, fin_lat=fin_lat,
+                                                                              fin_lon=fin_lon)
+                        new_up_t = self.get_new_up_t(arr_loc=up_loc, sta_lat=ori_lat, sta_lon=ori_lon, up_t=up_t)
+                        if new_up_t is not None:
+                            up_t = new_up_t
 
             s_pos_l.append((ori_lat, ori_lon))
             s_t_l.append(up_t)

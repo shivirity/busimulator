@@ -35,9 +35,12 @@ def read_in(**kwargs):
         dep_duration_list = list(dep_duration_list['dep_duration'])
         dep_num_list = list(dep_num_list['dep_num'])
     else:
-        dist_mat = pd.read_csv(rf'data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\distance_matrix_{DIRECTION}.csv', encoding='gbk')
-        speed_df = pd.read_csv(rf'data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\speed_list_{DIRECTION}.csv', encoding='gbk')
-        station_info = pd.read_csv(rf'data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\station_info.csv', encoding='gbk')
+        dist_mat = pd.read_csv(rf'data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\distance_matrix_{DIRECTION}.csv',
+                               encoding='gbk')
+        speed_df = pd.read_csv(rf'data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\speed_list_{DIRECTION}.csv',
+                               encoding='gbk')
+        station_info = pd.read_csv(rf'data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\station_info.csv',
+                                   encoding='gbk')
         dep_duration_list = pd.read_csv(rf'data\line_{TEST_LINE}\dep_duration_{DIRECTION}.csv', encoding='gbk')
         dep_num_list = pd.read_csv(rf'data\line_{TEST_LINE}\dep_num_{DIRECTION}.csv', encoding='gbk')
         station_info = station_info[station_info['direction'] == DIRECTION].reset_index(drop=True)
@@ -112,6 +115,10 @@ class Sim:
         self.pas_pool = []  # 已完成的乘客池
         self.pas_idx = 0
 
+        # 结合和分离决策与相应日志
+        self.can_reorg = None  # 用于测试结合和分离的效果，仅限于 sim_mode == 'single'
+        self.reorg_log = []  # 用于记录结合和分离的日志[(time, code)] code: 0-结合，1-分离
+
         # 日志输出
         self.print_log = False
 
@@ -129,17 +136,17 @@ class Sim:
     def stop_time(self):
         """进站时间"""
         if self.sim_mode == 'baseline':
-            if 7 * 3600 <= self.t < 9 * 3600 or 17 * 3600 <= self.t < 19 * 3600:
+            if EARLY_HIGH_START_T <= self.t < EARLY_HIGH_END_T or LATE_HIGH_START_T <= self.t < LATE_HIGH_END_T:
                 return OLD_STOP_T_HIGH
             else:
                 return OLD_STOP_T_NORM
         elif self.sim_mode == 'single':
-            if 7 * 3600 <= self.t < 9 * 3600 or 17 * 3600 <= self.t < 19 * 3600:
+            if EARLY_HIGH_START_T <= self.t < EARLY_HIGH_END_T or LATE_HIGH_START_T <= self.t < LATE_HIGH_END_T:
                 return NEW_STOP_T_HIGH
             else:
                 return NEW_STOP_T_NORM
         else:
-            if 7 * 3600 <= self.t < 9 * 3600 or 17 * 3600 <= self.t < 19 * 3600:
+            if EARLY_HIGH_START_T <= self.t < EARLY_HIGH_END_T or LATE_HIGH_START_T <= self.t < LATE_HIGH_END_T:
                 return NEW_STOP_T_HIGH
             else:
                 return NEW_STOP_T_NORM
@@ -190,22 +197,30 @@ class Sim:
                     if self.t == start_re_t:
                         self.record_bus_num = len(self.all_buses)
                     self.record_dict[f'bus_id_{self.t}'] = list(self.all_buses.keys())
-                    if len(self.record_dict[f'bus_id_{self.t}']) < self.record_bus_num+foresee_bus_num:
-                        self.record_dict[f'bus_id_{self.t}'] += [-1] * (self.record_bus_num+foresee_bus_num - len(self.record_dict[f'bus_id_{self.t}']))
+                    if len(self.record_dict[f'bus_id_{self.t}']) < self.record_bus_num + foresee_bus_num:
+                        self.record_dict[f'bus_id_{self.t}'] += [-1] * (
+                                    self.record_bus_num + foresee_bus_num - len(self.record_dict[f'bus_id_{self.t}']))
                     self.record_dict[f'bus_able_{self.t}'] = [(1 if self.all_buses[bus_id].able is True else 0) for
                                                               bus_id in self.all_buses.keys()]
-                    if len(self.record_dict[f'bus_able_{self.t}']) < self.record_bus_num+foresee_bus_num:
-                        self.record_dict[f'bus_able_{self.t}'] += [-1] * (self.record_bus_num+foresee_bus_num - len(self.record_dict[f'bus_able_{self.t}']))
+                    if len(self.record_dict[f'bus_able_{self.t}']) < self.record_bus_num + foresee_bus_num:
+                        self.record_dict[f'bus_able_{self.t}'] += [-1] * (
+                                    self.record_bus_num + foresee_bus_num - len(self.record_dict[f'bus_able_{self.t}']))
                     self.record_dict[f'bus_loc_{self.t}'] = [(1 if self.all_buses[bus_id].able is True else 0) for
-                                                              bus_id in self.all_buses.keys()]
-                    if len(self.record_dict[f'bus_loc_{self.t}']) < self.record_bus_num+foresee_bus_num:
-                        self.record_dict[f'bus_loc_{self.t}'] += [-1] * (self.record_bus_num+foresee_bus_num - len(self.record_dict[f'bus_loc_{self.t}']))
-                    self.record_dict[f'bus_cabs_{self.t}'] = [self.all_buses[bus_id].cab_id for bus_id in self.all_buses.keys()]
-                    if len(self.record_dict[f'bus_cabs_{self.t}']) < self.record_bus_num+foresee_bus_num:
-                        self.record_dict[f'bus_cabs_{self.t}'] += [-1] * (self.record_bus_num+foresee_bus_num - len(self.record_dict[f'bus_cabs_{self.t}']))
-                    self.record_dict[f'bus_pass_num_{self.t}'] = [[len(cab) for cab in self.all_buses[bus_id].pass_list] for bus_id in self.all_buses.keys()]
-                    if len(self.record_dict[f'bus_pass_num_{self.t}']) < self.record_bus_num+foresee_bus_num:
-                        self.record_dict[f'bus_pass_num_{self.t}'] += [-1] * (self.record_bus_num+foresee_bus_num - len(self.record_dict[f'bus_pass_num_{self.t}']))
+                                                             bus_id in self.all_buses.keys()]
+                    if len(self.record_dict[f'bus_loc_{self.t}']) < self.record_bus_num + foresee_bus_num:
+                        self.record_dict[f'bus_loc_{self.t}'] += [-1] * (
+                                    self.record_bus_num + foresee_bus_num - len(self.record_dict[f'bus_loc_{self.t}']))
+                    self.record_dict[f'bus_cabs_{self.t}'] = [self.all_buses[bus_id].cab_id for bus_id in
+                                                              self.all_buses.keys()]
+                    if len(self.record_dict[f'bus_cabs_{self.t}']) < self.record_bus_num + foresee_bus_num:
+                        self.record_dict[f'bus_cabs_{self.t}'] += [-1] * (
+                                    self.record_bus_num + foresee_bus_num - len(self.record_dict[f'bus_cabs_{self.t}']))
+                    self.record_dict[f'bus_pass_num_{self.t}'] = [[len(cab) for cab in self.all_buses[bus_id].pass_list]
+                                                                  for bus_id in self.all_buses.keys()]
+                    if len(self.record_dict[f'bus_pass_num_{self.t}']) < self.record_bus_num + foresee_bus_num:
+                        self.record_dict[f'bus_pass_num_{self.t}'] += [-1] * (
+                                    self.record_bus_num + foresee_bus_num - len(
+                                self.record_dict[f'bus_pass_num_{self.t}']))
 
                 elif self.t == end_re_t:
                     self.record_end_bus_num = len(self.all_buses)
@@ -228,7 +243,9 @@ class Sim:
 
         if self.get_record is not None:
             self.record_df = pd.DataFrame(self.record_dict)[:self.record_end_bus_num]
-            self.record_df.to_csv(rf'.\data\line_{TEST_LINE}\record_{self.sim_mode}_{round(self.get_record[0])}_{round(self.get_record[1])}.csv', index=False)
+            self.record_df.to_csv(
+                rf'.\data\line_{TEST_LINE}\record_{self.sim_mode}_{round(self.get_record[0])}_{round(self.get_record[1])}.csv',
+                index=False)
 
     def update_passengers(self):
         """更新乘客到站"""
@@ -258,7 +275,8 @@ class Sim:
                         else:
                             assert isinstance(pas.start_loc, str)
                             main_id, side_id, side_order = pas.start_loc.split('#')
-                            self.line.side_line[f'{main_id}#{side_id}'].side_stations[int(side_order)]['pool'].append(pas)
+                            self.line.side_line[f'{main_id}#{side_id}'].side_stations[int(side_order)]['pool'].append(
+                                pas)
                         self.all_passengers[self.pas_idx] = pas
             else:
                 break
@@ -440,6 +458,8 @@ class Sim:
                                 )
                                 new_bus_rear.pass_list = [list(cab) for cab in cur_bus.pass_list[-cur_bus.sep_state:]]
 
+                                self.reorg_log.append((self.t, 1, cur_bus.cab_num))
+
                                 if self.print_log:
                                     logging.info(f'{cur_bus} successfully divide into '
                                                  f'{new_bus_front} and {new_bus_rear} after station {int(loc_1)}')
@@ -483,6 +503,8 @@ class Sim:
                                         able=True
                                     )
                                     new_bus.pass_list = [list(cab) for cab in cur_bus.pass_list + comb_bus.pass_list]
+
+                                self.reorg_log.append((self.t, 0, cur_bus.cab_num + comb_bus.cab_num))
 
                                 if self.print_log:
                                     logging.info(f'{cur_bus} and {comb_bus} successfully '
@@ -887,7 +909,8 @@ class Sim:
                                                         )
 
                                                     sel_bus.sort_passengers(
-                                                        station=main_id, pas_info=self.all_passengers, mode=self.sim_mode)
+                                                        station=main_id, pas_info=self.all_passengers,
+                                                        mode=self.sim_mode)
                                                 have_decided_list.append(dec_list[ind])
                                     else:
                                         pass
@@ -933,11 +956,14 @@ class Sim:
                                                 [cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{order}')
                                                  for order in range(side_order + 1, num_side_stations + 1)])
                                             if far_up_exp + far_down_exp < 0.2:  # early-return
-                                                assert cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{side_order}') == 0
-                                                if len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[side_order]['pool']):
+                                                assert cur_bus.stop_pass_num(
+                                                    station=f'{main_id}#{side_id}#{side_order}') == 0
+                                                if len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[
+                                                           side_order]['pool']):
                                                     # 上车
                                                     while cur_bus.pass_num < cur_bus.max_num and \
-                                                            len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[
+                                                            len(self.line.side_line[
+                                                                    f'{main_id}#{side_id}'].side_stations[
                                                                     side_order]['pool']) > 0:
                                                         on_pas = \
                                                             self.line.side_line[f'{main_id}#{side_id}'].side_stations[
@@ -1176,7 +1202,8 @@ class Sim:
                                                         )
 
                                                     sel_bus.sort_passengers(
-                                                        station=main_id, pas_info=self.all_passengers, mode=self.sim_mode)
+                                                        station=main_id, pas_info=self.all_passengers,
+                                                        mode=self.sim_mode)
                                                 have_decided_list.append(dec_list[ind])
                                     else:
                                         pass
@@ -1288,8 +1315,10 @@ class Sim:
                                             [cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{order}')
                                              for order in range(side_order + 1, num_side_stations + 1)])
                                         if far_up_exp + far_down_exp < 0.2:  # early-return
-                                            assert cur_bus.stop_pass_num(station=f'{main_id}#{side_id}#{side_order}') == 0
-                                            if len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[side_order]['pool']):
+                                            assert cur_bus.stop_pass_num(
+                                                station=f'{main_id}#{side_id}#{side_order}') == 0
+                                            if len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[
+                                                       side_order]['pool']):
                                                 # 上车
                                                 while cur_bus.pass_num < cur_bus.max_num and \
                                                         len(self.line.side_line[f'{main_id}#{side_id}'].side_stations[
@@ -1448,6 +1477,8 @@ class Sim:
                                         new_bus_rear.pass_list = [list(cab) for cab in
                                                                   cur_bus.pass_list[-cur_bus.sep_state:]]
 
+                                        self.reorg_log.append((self.t, 1, cur_bus.cab_num))
+
                                         if self.print_log:
                                             logging.info(f'{cur_bus} successfully divide into '
                                                          f'{new_bus_front} and {new_bus_rear} after station {main_id}')
@@ -1498,6 +1529,8 @@ class Sim:
                                             )
                                             new_bus.pass_list = [list(cab) for cab in
                                                                  cur_bus.pass_list + comb_bus.pass_list]
+
+                                        self.reorg_log.append((self.t, 0, cur_bus.cab_num + comb_bus.cab_num))
 
                                         if self.print_log:
                                             logging.info(f'{cur_bus} and {comb_bus} successfully '
@@ -1551,65 +1584,72 @@ class Sim:
             for bus in available_bus:
                 cur_bus = self.all_buses[bus]
                 if cur_bus.to_dec_trans is True:
-                    # 分离决策
-                    if cur_bus.cab_num > 1.8:  # 超过2节车厢
-                        cur_station = int(cur_bus.loc.split('@')[0])
-                        next_down_num = cur_bus.stop_pass_num(station=cur_station + 1)
-                        if next_down_num > MIN_SEP_PASS_NUM:  # 下站下车人数到达下限
-                            not_down_num = cur_bus.pass_num - next_down_num
-                            if not_down_num * self.stop_time >= \
-                                    SEP_DURATION - SEP_DIST / self.line.speed_list[cur_station - 1]:  # 不下车乘客时间节约效果
-                                sep_cab_num = int(next_down_num / cur_bus.max_num_list[0]) + 1
-                                cur_bus.sep_dec = sep_cab_num if sep_cab_num < cur_bus.cab_num else int(
-                                    cur_bus.cab_num - 1)
+                    assert isinstance(self.can_reorg, bool)
+                    if self.can_reorg:
+                        # 分离决策
+                        if cur_bus.cab_num > 1.8:  # 超过2节车厢
+                            cur_station = int(cur_bus.loc.split('@')[0])
+                            next_down_num = cur_bus.stop_pass_num(station=cur_station + 1)
+                            if next_down_num > MIN_SEP_PASS_NUM:  # 下站下车人数到达下限
+                                not_down_num = cur_bus.pass_num - next_down_num
+                                if not_down_num * self.stop_time >= \
+                                        SEP_DURATION - SEP_DIST / self.line.speed_list[cur_station - 1]:  # 不下车乘客时间节约效果
+                                    sep_cab_num = int(next_down_num / cur_bus.max_num_list[0]) + 1
+                                    cur_bus.sep_dec = sep_cab_num if sep_cab_num < cur_bus.cab_num else int(
+                                        cur_bus.cab_num - 1)
+                                else:
+                                    pass
                             else:
                                 pass
                         else:
                             pass
-                    else:
-                        pass
-                    # 结合决策
-                    if cur_bus.sep_dec is None:
-                        loc_dict = self.get_loc_dict()
-                        cur_station = int(cur_bus.loc.split('@')[0])
-                        # 不同时sep和comb
-                        pot_comb_buses = [b for b in loc_dict[cur_bus.loc] if
-                                          (self.all_buses[b].sep_dec is None) and (self.all_buses[b].comb_dec is None)
-                                          and (self.all_buses[b].sep_state is None)
-                                          and (self.all_buses[b].comb_state is None)
-                                          and b != cur_bus.bus_id]
-                        pot_comb_order = sorted(pot_comb_buses, key=lambda x: self.all_buses[x].time_count,
-                                                reverse=True)
-                        for pot_bus in pot_comb_order:
-                            if cur_bus.cab_num + self.all_buses[pot_bus].cab_num > 3.2:
-                                pass
-                            else:
-                                # condition1: enough distance to cover
-                                if self.all_buses[pot_bus].time_count < COMB_DIST / self.line.speed_list[
-                                    cur_station - 1] + \
-                                        (1 - RATE_COMB_ROUTE) * \
-                                        ((self.line.dist_list[cur_station - 1] - COMB_DIST) / self.line.speed_list[
-                                            cur_station - 1]):
-                                    # condition2: much to get off in the front bus
-                                    # 在下一站点下车的乘客数量
-                                    next_n_down_num = self.all_buses[pot_bus].get_off_pas_num(
-                                        s_station=cur_station + 2, e_station=cur_station + COMB_FORE_STA)
-                                    if self.all_buses[pot_bus].pass_num == 0 or \
-                                            next_n_down_num / self.all_buses[pot_bus].pass_num >= RATE_FRONT_PASS:
-                                        # condition3: much to stay on the rear bus
-                                        next_n_down_num = cur_bus.get_off_pas_num(
-                                            s_station=cur_station + COMB_FORE_STA, e_station=self.line.max_station_num)
+                        # 结合决策
+                        if cur_bus.sep_dec is None:
+                            loc_dict = self.get_loc_dict()
+                            cur_station = int(cur_bus.loc.split('@')[0])
+                            # 不同时sep和comb
+                            pot_comb_buses = [b for b in loc_dict[cur_bus.loc] if
+                                              (self.all_buses[b].sep_dec is None) and (
+                                                          self.all_buses[b].comb_dec is None)
+                                              and (self.all_buses[b].sep_state is None)
+                                              and (self.all_buses[b].comb_state is None)
+                                              and b != cur_bus.bus_id]
+                            pot_comb_order = sorted(pot_comb_buses, key=lambda x: self.all_buses[x].time_count,
+                                                    reverse=True)
+                            for pot_bus in pot_comb_order:
+                                if cur_bus.cab_num + self.all_buses[pot_bus].cab_num > 3.2:
+                                    pass
+                                else:
+                                    # condition1: enough distance to cover
+                                    if self.all_buses[pot_bus].time_count < COMB_DIST / self.line.speed_list[
+                                        cur_station - 1] + \
+                                            (1 - RATE_COMB_ROUTE) * \
+                                            ((self.line.dist_list[cur_station - 1] - COMB_DIST) / self.line.speed_list[
+                                                cur_station - 1]):
+                                        # condition2: much to get off in the front bus
+                                        # 在下一站点下车的乘客数量
+                                        next_n_down_num = self.all_buses[pot_bus].get_off_pas_num(
+                                            s_station=cur_station + 2, e_station=cur_station + COMB_FORE_STA)
                                         if self.all_buses[pot_bus].pass_num == 0 or \
-                                                next_n_down_num / self.all_buses[pot_bus].pass_num >= RATE_REAR_PASS:
-                                            self.all_buses[pot_bus].comb_dec = [cur_bus.bus_id, 0]
-                                            cur_bus.comb_dec = [pot_bus, 1]
-                                            break
+                                                next_n_down_num / self.all_buses[pot_bus].pass_num >= RATE_FRONT_PASS:
+                                            # condition3: much to stay on the rear bus
+                                            next_n_down_num = cur_bus.get_off_pas_num(
+                                                s_station=cur_station + COMB_FORE_STA,
+                                                e_station=self.line.max_station_num)
+                                            if self.all_buses[pot_bus].pass_num == 0 or \
+                                                    next_n_down_num / self.all_buses[
+                                                pot_bus].pass_num >= RATE_REAR_PASS:
+                                                self.all_buses[pot_bus].comb_dec = [cur_bus.bus_id, 0]
+                                                cur_bus.comb_dec = [pot_bus, 1]
+                                                break
+                                            else:
+                                                pass
                                         else:
                                             pass
                                     else:
                                         pass
-                                else:
-                                    pass
+                    else:
+                        assert self.sim_mode == 'single'
                     cur_bus.to_dec_trans = False
                 else:
                     pass
@@ -1789,6 +1829,7 @@ class Sim:
 
         if self.sim_mode in ['baseline', 'single']:
 
+            # not all passengers get on/off
             if None in [val.down_t for val in self.all_passengers.values()]:
                 # assert False, \
                 # f'some passengers not get on/off, {self.dep_decider.dep_num_list, self.dep_decider.dep_duration_list}'
@@ -1798,23 +1839,77 @@ class Sim:
                     'avg_travel_t(full, min)': 7,
                 }
 
+            # all passengers get on/off
             else:
                 avg_travel_t, avg_wait_t, full_t, avg_station_wait_t, avg_move_dist = 0, 0, 0, 0, 0
+                num_early, num_noon, num_late = 0, 0, 0
+                avg_travel_t_early, avg_travel_t_noon, avg_travel_t_late = 0, 0, 0
+                avg_wait_t_early, avg_wait_t_noon, avg_wait_t_late = 0, 0, 0
+                full_t_early, full_t_noon, full_t_late = 0, 0, 0
+                avg_station_wait_t_early, avg_station_wait_t_noon, avg_station_wait_t_late = 0, 0, 0
+                avg_move_dist_early, avg_move_dist_noon, avg_move_dist_late = 0, 0, 0
+
                 avg_on_move_dist, avg_down_move_dist = 0, 0
                 for pas in self.all_passengers.values():
                     pas.get_statistics(line=self.line, mode=self.sim_mode)
+                    # at different time
                     avg_travel_t += pas.travel_t
                     avg_wait_t += pas.bus_wait_t
                     full_t += pas.full_jour_t
                     avg_station_wait_t += pas.station_wait_t
                     avg_move_dist += pas.move_dist
+                    if EARLY_HIGH_START_T <= pas.arr_t < EARLY_HIGH_END_T:
+                        num_early += 1
+                        avg_travel_t_early += pas.travel_t
+                        avg_wait_t_early += pas.bus_wait_t
+                        full_t_early += pas.full_jour_t
+                        avg_station_wait_t_early += pas.station_wait_t
+                        avg_move_dist_early += pas.move_dist
+                    elif NOON_START_T <= pas.arr_t < NOON_END_T:
+                        num_noon += 1
+                        avg_travel_t_noon += pas.travel_t
+                        avg_wait_t_noon += pas.bus_wait_t
+                        full_t_noon += pas.full_jour_t
+                        avg_station_wait_t_noon += pas.station_wait_t
+                        avg_move_dist_noon += pas.move_dist
+                    elif LATE_HIGH_START_T <= pas.arr_t < LATE_HIGH_END_T:
+                        num_late += 1
+                        avg_travel_t_late += pas.travel_t
+                        avg_wait_t_late += pas.bus_wait_t
+                        full_t_late += pas.full_jour_t
+                        avg_station_wait_t_late += pas.station_wait_t
+                        avg_move_dist_late += pas.move_dist
+                    # for all passengers
                     avg_on_move_dist += pas.on_move_dist
                     avg_down_move_dist += pas.down_move_dist
+
+                # at different time
                 avg_travel_t /= (len(self.all_passengers) * 60)
+                avg_travel_t_early /= (num_early * 60)
+                avg_travel_t_noon /= (num_noon * 60)
+                avg_travel_t_late /= (num_late * 60)
+
                 avg_wait_t /= (len(self.all_passengers) * 60)
+                avg_wait_t_early /= (num_early * 60)
+                avg_wait_t_noon /= (num_noon * 60)
+                avg_wait_t_late /= (num_late * 60)
+
                 full_t /= (len(self.all_passengers) * 60)
+                full_t_early /= (num_early * 60)
+                full_t_noon /= (num_noon * 60)
+                full_t_late /= (num_late * 60)
+
                 avg_station_wait_t /= (len(self.all_passengers) * 60)
+                avg_station_wait_t_early /= (num_early * 60)
+                avg_station_wait_t_noon /= (num_noon * 60)
+                avg_station_wait_t_late /= (num_late * 60)
+
                 avg_move_dist /= len(self.all_passengers)
+                avg_move_dist_early /= num_early
+                avg_move_dist_noon /= num_noon
+                avg_move_dist_late /= num_late
+
+                # for all passengers
                 avg_on_move_dist /= len(self.all_passengers)
                 avg_down_move_dist /= len(self.all_passengers)
 
@@ -1831,15 +1926,19 @@ class Sim:
                     max_pas_num = np.max(pas_num_list) / cap
                     avg_pas_num_list_early = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in
                                               self.all_cabs.values()
-                                              if 6 * 3600 <= cab['dep_time'][0] < 8 * 3600]
+                                              if (EARLY_HIGH_START_T - 3600) <= cab['dep_time'][0] < (
+                                                          EARLY_HIGH_END_T - 3600)]
                     avg_pas_num_early = np.mean(avg_pas_num_list_early) / cap
                     avg_pas_num_list_noon = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
-                                             if 10 * 3600 <= cab['dep_time'][0] < 12 * 3600]
+                                             if (NOON_START_T - 3600) <= cab['dep_time'][0] < (NOON_END_T - 3600)]
                     avg_pas_num_noon = np.mean(avg_pas_num_list_noon) / cap
                     avg_pas_num_list_late = [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
-                                             if 16 * 3600 <= cab['dep_time'][0] < 18 * 3600]
+                                             if (LATE_HIGH_START_T - 3600) <= cab['dep_time'][0] < (
+                                                         LATE_HIGH_END_T - 3600)]
                     avg_pas_num_late = np.mean(avg_pas_num_list_late) / cap
                     driver_wage = 20 * DRIVER_WAGE_OLD
+                    num_sep, num_sep_early, num_sep_noon, num_sep_late = 0, 0, 0, 0
+                    num_comb, num_comb_early, num_comb_noon, num_comb_late = 0, 0, 0, 0
 
                 elif self.sim_mode == 'single':
                     cap = SMALL_CAB
@@ -1852,35 +1951,103 @@ class Sim:
                     avg_pas_num = np.mean(avg_pas_num_array) / cap
                     avg_pas_num_array_early = np.array(
                         [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
-                         if 6 * 3600 <= cab['dep_time'][0] < 8 * 3600])
+                         if (EARLY_HIGH_START_T - 3600) <= cab['dep_time'][0] < (EARLY_HIGH_END_T - 3600)])
                     avg_pas_num_early = np.mean(avg_pas_num_array_early) / cap
                     avg_pas_num_array_noon = np.array(
                         [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
-                         if 10 * 3600 <= cab['dep_time'][0] < 12 * 3600])
+                         if (NOON_START_T - 3600) <= cab['dep_time'][0] < (NOON_END_T - 3600)])
                     avg_pas_num_noon = np.mean(avg_pas_num_array_noon) / cap
                     avg_pas_num_array_late = np.array(
                         [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
-                         if 16 * 3600 <= cab['dep_time'][0] < 18 * 3600])
+                         if (LATE_HIGH_START_T - 3600) <= cab['dep_time'][0] < (LATE_HIGH_END_T - 3600)])
                     avg_pas_num_late = np.mean(avg_pas_num_array_late) / cap
                     driver_wage = len(self.all_cabs) / 96 * 240 * 5 / 6 * 10000
+                    num_sep = sum([val[2] for val in self.reorg_log if val[1] == 1])
+                    num_sep_early = sum([val[2] for val in self.reorg_log if
+                                         val[1] == 1 and EARLY_HIGH_START_T <= val[0] < EARLY_HIGH_END_T])
+                    num_sep_noon = sum([val[2] for val in self.reorg_log if
+                                        val[1] == 1 and NOON_START_T <= val[0] < NOON_END_T])
+                    num_sep_late = sum([val[2] for val in self.reorg_log if
+                                        val[1] == 1 and LATE_HIGH_START_T <= val[0] < LATE_HIGH_END_T])
+                    num_comb = sum([val[2] for val in self.reorg_log if val[1] == 0])
+                    num_comb_early = sum([val[2] for val in self.reorg_log if
+                                         val[1] == 0 and EARLY_HIGH_START_T <= val[0] < EARLY_HIGH_END_T])
+                    num_comb_noon = sum([val[2] for val in self.reorg_log if
+                                        val[1] == 0 and NOON_START_T <= val[0] < NOON_END_T])
+                    num_comb_late = sum([val[2] for val in self.reorg_log if
+                                        val[1] == 0 and LATE_HIGH_START_T <= val[0] < LATE_HIGH_END_T])
 
         else:
             avg_travel_t, avg_wait_t, full_t, avg_station_wait_t, avg_move_dist = 0, 0, 0, 0, 0
+            num_early, num_noon, num_late = 0, 0, 0
+            avg_travel_t_early, avg_travel_t_noon, avg_travel_t_late = 0, 0, 0
+            avg_wait_t_early, avg_wait_t_noon, avg_wait_t_late = 0, 0, 0
+            full_t_early, full_t_noon, full_t_late = 0, 0, 0
+            avg_station_wait_t_early, avg_station_wait_t_noon, avg_station_wait_t_late = 0, 0, 0
+            avg_move_dist_early, avg_move_dist_noon, avg_move_dist_late = 0, 0, 0
+
             avg_on_move_dist, avg_down_move_dist = 0, 0
             for pas in self.pas_pool:
                 pas.get_statistics(line=self.line, mode=self.sim_mode)
+                # at different time
                 avg_travel_t += pas.travel_t
                 avg_wait_t += pas.bus_wait_t
                 full_t += pas.full_jour_t
                 avg_station_wait_t += pas.station_wait_t
                 avg_move_dist += pas.move_dist
+                if EARLY_HIGH_START_T <= pas.arr_t < EARLY_HIGH_END_T:
+                    num_early += 1
+                    avg_travel_t_early += pas.travel_t
+                    avg_wait_t_early += pas.bus_wait_t
+                    full_t_early += pas.full_jour_t
+                    avg_station_wait_t_early += pas.station_wait_t
+                    avg_move_dist_early += pas.move_dist
+                elif NOON_START_T <= pas.arr_t < NOON_END_T:
+                    num_noon += 1
+                    avg_travel_t_noon += pas.travel_t
+                    avg_wait_t_noon += pas.bus_wait_t
+                    full_t_noon += pas.full_jour_t
+                    avg_station_wait_t_noon += pas.station_wait_t
+                    avg_move_dist_noon += pas.move_dist
+                elif LATE_HIGH_START_T <= pas.arr_t < LATE_HIGH_END_T:
+                    num_late += 1
+                    avg_travel_t_late += pas.travel_t
+                    avg_wait_t_late += pas.bus_wait_t
+                    full_t_late += pas.full_jour_t
+                    avg_station_wait_t_late += pas.station_wait_t
+                    avg_move_dist_late += pas.move_dist
+
+                # all passengers
                 avg_on_move_dist += pas.on_move_dist
                 avg_down_move_dist += pas.down_move_dist
-            avg_travel_t /= (len(self.pas_pool) * 60)
-            avg_wait_t /= (len(self.pas_pool) * 60)
-            full_t /= (len(self.pas_pool) * 60)
-            avg_station_wait_t /= (len(self.pas_pool) * 60)
-            avg_move_dist /= len(self.pas_pool)
+
+            # at different time
+            avg_travel_t /= (len(self.all_passengers) * 60)
+            avg_travel_t_early /= (num_early * 60)
+            avg_travel_t_noon /= (num_noon * 60)
+            avg_travel_t_late /= (num_late * 60)
+
+            avg_wait_t /= (len(self.all_passengers) * 60)
+            avg_wait_t_early /= (num_early * 60)
+            avg_wait_t_noon /= (num_noon * 60)
+            avg_wait_t_late /= (num_late * 60)
+
+            full_t /= (len(self.all_passengers) * 60)
+            full_t_early /= (num_early * 60)
+            full_t_noon /= (num_noon * 60)
+            full_t_late /= (num_late * 60)
+
+            avg_station_wait_t /= (len(self.all_passengers) * 60)
+            avg_station_wait_t_early /= (num_early * 60)
+            avg_station_wait_t_noon /= (num_noon * 60)
+            avg_station_wait_t_late /= (num_late * 60)
+
+            avg_move_dist /= len(self.all_passengers)
+            avg_move_dist_early /= num_early
+            avg_move_dist_noon /= num_noon
+            avg_move_dist_late /= num_late
+
+            # all passengers
             avg_on_move_dist /= len(self.pas_pool)
             avg_down_move_dist /= len(self.pas_pool)
 
@@ -1894,24 +2061,56 @@ class Sim:
             avg_pas_num = np.mean(avg_pas_num_array) / cap
             avg_pas_num_array_early = np.array(
                 [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
-                 if 6 * 3600 <= cab['dep_time'][0] < 8 * 3600])
+                 if (EARLY_HIGH_START_T - 3600) <= cab['dep_time'][0] < (EARLY_HIGH_END_T - 3600)])
             avg_pas_num_early = np.mean(avg_pas_num_array_early) / cap
             avg_pas_num_array_noon = np.array(
                 [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
-                 if 10 * 3600 <= cab['dep_time'][0] < 12 * 3600])
+                 if (NOON_START_T - 3600) <= cab['dep_time'][0] < (NOON_END_T - 3600)])
             avg_pas_num_noon = np.mean(avg_pas_num_array_noon) / cap
             avg_pas_num_array_late = np.array(
                 [sum(cab['pas_num']) / len(cab['pas_num']) for cab in self.all_cabs.values()
-                 if 16 * 3600 <= cab['dep_time'][0] < 18 * 3600])
+                 if (LATE_HIGH_START_T - 3600) <= cab['dep_time'][0] < (LATE_HIGH_END_T - 3600)])
             avg_pas_num_late = np.mean(avg_pas_num_array_late) / cap
             driver_wage = len(self.all_cabs) / 96 * 240 * 5 / 6 * 10000
+            num_sep = sum([val[2] for val in self.reorg_log if val[1] == 1])
+            num_sep_early = sum([val[2] for val in self.reorg_log if
+                                 val[1] == 1 and EARLY_HIGH_START_T <= val[0] < EARLY_HIGH_END_T])
+            num_sep_noon = sum([val[2] for val in self.reorg_log if
+                                val[1] == 1 and NOON_START_T <= val[0] < NOON_END_T])
+            num_sep_late = sum([val[2] for val in self.reorg_log if
+                                val[1] == 1 and LATE_HIGH_START_T <= val[0] < LATE_HIGH_END_T])
+            num_comb = sum([val[2] for val in self.reorg_log if val[1] == 0])
+            num_comb_early = sum([val[2] for val in self.reorg_log if
+                                  val[1] == 0 and EARLY_HIGH_START_T <= val[0] < EARLY_HIGH_END_T])
+            num_comb_noon = sum([val[2] for val in self.reorg_log if
+                                 val[1] == 0 and NOON_START_T <= val[0] < NOON_END_T])
+            num_comb_late = sum([val[2] for val in self.reorg_log if
+                                 val[1] == 0 and LATE_HIGH_START_T <= val[0] < LATE_HIGH_END_T])
 
         return {
+            'num_early': num_early,
+            'num_noon': num_noon,
+            'num_late': num_late,
             'avg_travel_t(on bus, min)': avg_travel_t,
+            'avg_travel_t(on bus, early, min)': avg_travel_t_early,
+            'avg_travel_t(on bus, noon, min)': avg_travel_t_noon,
+            'avg_travel_t(on bus, late, min)': avg_travel_t_late,
             'avg_travel_t(full, min)': full_t,
+            'avg_travel_t(full, early, min)': full_t_early,
+            'avg_travel_t(full, noon, min)': full_t_noon,
+            'avg_travel_t(full, late, min)': full_t_late,
             'avg_wait_t(min)': avg_wait_t,
+            'avg_wait_t(early, min)': avg_wait_t_early,
+            'avg_wait_t(noon, min)': avg_wait_t_noon,
+            'avg_wait_t(late, min)': avg_wait_t_late,
             'avg_station_wait_t(min)': avg_station_wait_t,
+            'avg_station_wait_t(early, min)': avg_station_wait_t_early,
+            'avg_station_wait_t(noon, min)': avg_station_wait_t_noon,
+            'avg_station_wait_t(late, min)': avg_station_wait_t_late,
             'avg_move_dist(m)': avg_move_dist,
+            'avg_move_dist(early, m)': avg_move_dist_early,
+            'avg_move_dist(noon, m)': avg_move_dist_noon,
+            'avg_move_dist(late, m)': avg_move_dist_late,
             'avg_on_move_dist(m)': avg_on_move_dist,
             'avg_down_move_dist(m)': avg_down_move_dist,
             'power consumption(equal speed, kWh)': power_consump_speed,
@@ -1922,18 +2121,27 @@ class Sim:
             'avg_pas_num(early)': avg_pas_num_early,
             'avg_pas_num(noon)': avg_pas_num_noon,
             'avg_pas_num(late)': avg_pas_num_late,
-            'carbon emission(g)': 0.31 * 0.23 * power_consump_cond
+            'carbon emission(g)': 0.31 * 0.23 * power_consump_cond,
+            'sep times': num_sep,
+            'sep times(early)': num_sep_early,
+            'sep times(noon)': num_sep_noon,
+            'sep times(late)': num_sep_late,
+            'comb times': num_comb,
+            'comb times(early)': num_comb_early,
+            'comb times(noon)': num_comb_noon,
+            'comb times(late)': num_comb_late,
+            'cab num': len(self.all_cabs),
         }
 
 
 if __name__ == '__main__':
-    line_info = read_in(way='total', fractile=None)
+    line_info = read_in(way='total', fractile=0.5)
     start = time.time()
 
     # optimization for single line
     # plan 1
-    line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
-    line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
+    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
+    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
     # plan 2
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 480, 480, 480, 480, 720, 720, 840, 840, 720, 720, 660, 660, 720, 720, 720, 720]
@@ -1941,8 +2149,9 @@ if __name__ == '__main__':
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 840, 840, 900, 900, 840, 840, 840, 840, 840, 840, 840, 840, 840, 840, 720, 720, 600, 600]
 
-    multi_dec_rule = 'down_first'
+    multi_dec_rule = 'up_first'
     sim = Sim(**line_info, sim_mode='multi_order', multi_dec_rule=multi_dec_rule, record_time=None)
+    sim.can_reorg = True
     sim.print_log = False
     # sim.get_record = None
     # sim.get_record = (9 * 3600, 9.2 * 3600)
