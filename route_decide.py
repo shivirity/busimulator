@@ -576,6 +576,14 @@ class RouteDecider:
                     no_down_list = [val for val in dis_return_run_buses if val not in have_down_list]
                     # 已决策在主线停留的车辆
                     main_stop_list = []
+
+                    # no_down_list中根据剩余行程排序
+                    no_down_list = \
+                        sorted(
+                            no_down_list,
+                            key=lambda x: bus_info[x].sum_stations_to_go(station=main_id), reverse=False
+                        )
+
                     # 分配原地不下车
                     if len(no_down_list) > 0:
                         for bus in no_down_list:
@@ -598,9 +606,11 @@ class RouteDecider:
                                         len(stop_buses) + len(have_down_list) + len(main_stop_list) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
                                         cur_bus.pass_num < cur_bus.max_num:  # 有人在主线上
                                     dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
+                                    main_stop_list.append(bus)
                                 else:
                                     if side_1_down + side_2_down > 0.2:
                                         dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
+                                        main_stop_list.append(bus)
                                     else:
                                         dec_dict[bus] = {'stop': False, 'turn': 0, 'can_return_stop': False}
                                 dec_num += 1
@@ -609,6 +619,7 @@ class RouteDecider:
                                     # 有人在#2等待
                                     if side_1_down > 0:
                                         dec_dict[bus] = {'stop': True, 'turn': 2, 'can_return_stop': True}
+                                        main_stop_list.append(bus)
                                     else:
                                         dec_dict[bus] = {'stop': False, 'turn': 2, 'can_return_stop': True}
                                     decide_turn[2].append(bus)
@@ -618,9 +629,11 @@ class RouteDecider:
                                             len(stop_buses) + len(have_down_list) + len(main_stop_list) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
                                             cur_bus.pass_num < cur_bus.max_num:
                                         dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
+                                        main_stop_list.append(bus)
                                     else:
                                         if side_1_down + side_2_down > 0.2:
                                             dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
+                                            main_stop_list.append(bus)
                                         else:
                                             dec_dict[bus] = {'stop': False, 'turn': 0, 'can_return_stop': False}
                                     dec_num += 1
@@ -629,6 +642,7 @@ class RouteDecider:
                                     # 有人在#1等待
                                     if side_2_down > 0:
                                         dec_dict[bus] = {'stop': True, 'turn': 1, 'can_return_stop': True}
+                                        main_stop_list.append(bus)
                                     else:
                                         dec_dict[bus] = {'stop': False, 'turn': 1, 'can_return_stop': True}
                                     decide_turn[1].append(bus)
@@ -638,9 +652,11 @@ class RouteDecider:
                                             len(stop_buses) + len(have_down_list) + len(main_stop_list) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
                                             cur_bus.pass_num < cur_bus.max_num:
                                         dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
+                                        main_stop_list.append(bus)
                                     else:
                                         if side_1_down + side_2_down > 0.2:
                                             dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
+                                            main_stop_list.append(bus)
                                         else:
                                             dec_dict[bus] = {'stop': False, 'turn': 0, 'can_return_stop': False}
                                     dec_num += 1
@@ -662,11 +678,13 @@ class RouteDecider:
                                     if turn_direc == 1:
                                         if side_2_down > 0:
                                             dec_dict[bus] = {'stop': True, 'turn': turn_direc, 'can_return_stop': True}
+                                            main_stop_list.append(bus)
                                         else:
                                             dec_dict[bus] = {'stop': False, 'turn': turn_direc, 'can_return_stop': True}
                                     else:
                                         if side_1_down > 0:
                                             dec_dict[bus] = {'stop': True, 'turn': turn_direc, 'can_return_stop': True}
+                                            main_stop_list.append(bus)
                                         else:
                                             dec_dict[bus] = {'stop': False, 'turn': turn_direc, 'can_return_stop': True}
                                     decide_turn[turn_direc].append(bus)
@@ -680,6 +698,7 @@ class RouteDecider:
                                     else:
                                         if side_1_down + side_2_down > 0.2:
                                             dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
+                                            main_stop_list.append(bus)
                                         else:
                                             dec_dict[bus] = {'stop': False, 'turn': 0, 'can_return_stop': False}
                                     dec_num += 1

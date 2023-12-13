@@ -134,7 +134,6 @@ class Bus:
         :param mode: 仿真模式
         :return:
         """
-        # todo: 针对multi情况的单独排序
 
         if mode == 'single':
             if self.cab_num == 1:

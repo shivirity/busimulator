@@ -167,16 +167,19 @@ class Sim:
                 self.update_dep(dec=dep_dec, cap=dep_cap)
 
             # debug phase
-            if self.t == 22558:
-                logging.debug('time debug')
-            # if 4 in self.all_buses.keys():
-            #     logging.error(f'bus debug at {self.all_buses[4].loc} at time {self.t}')
-            if self.all_buses[0].loc == '7@0':
-                logging.debug(f'location debug at {self.t}')
-            if self.t % 3600 == 0 and self.print_log:
-                logging.info(f'system time: {int(self.t / 3600)}:00')
-            if '4#2#0#0' in [bus.loc for bus in self.all_buses.values()]:
-                logging.debug(f'bus debug at {self.t}')
+            # if self.t == 23938:
+            #     logging.debug('time debug')
+            #     assert False
+            # # if 10 in self.all_cabs.keys():
+            # #     at_bus = int([bus.bus_id for bus in self.all_buses.values() if (10 in bus.cab_id) and (bus.able is True)][0])
+            # #     print(f'bus {at_bus} debug at {self.all_buses[at_bus].loc} at '
+            # #                   f'time {self.t} with {self.all_buses[at_bus].to_stop} with {self.all_buses[at_bus].time_count} with {[len(val) for val in self.all_buses[at_bus].pass_list]}')
+            # if self.all_buses[0].loc == '7@0':
+            #     logging.debug(f'location debug at {self.t}')
+            # if self.t % 3600 == 0 and self.print_log:
+            #     logging.info(f'system time: {int(self.t / 3600)}:00')
+            # if '4#2#0#0' in [bus.loc for bus in self.all_buses.values()]:
+            #     logging.debug(f'bus debug at {self.t}')
 
             # pas_id = 150
             # if pas_id in self.all_passengers.keys():
@@ -232,6 +235,9 @@ class Sim:
 
             # 动作决策
             self.assign_action()
+
+            # if len([1 for bus in self.all_buses.values() if bus.is_returning is True]) > 0:
+            #     assert False
 
             # 系统步进
             self.run_step()
@@ -798,7 +804,7 @@ class Sim:
                                                     cur_bus.to_dec_trans = True
                                                     cur_bus.loc = f'{main_id}#0#0#5'
                                                     cur_bus.run_next = f'{main_id + 1}#0#0#0'
-                                                    cur_bus.time_count = round(
+                                                    cur_bus.time_count = int(
                                                         (self.line.dist_list[main_id - 1] - DIS_FIX) /
                                                         self.line.speed_list[main_id - 1])
 
@@ -899,7 +905,7 @@ class Sim:
                                                         sel_bus.to_dec_trans = True
                                                         sel_bus.loc = f'{main_id}#0#0#5'
                                                         sel_bus.run_next = f'{main_id + 1}#0#0#0'
-                                                        sel_bus.time_count = round(
+                                                        sel_bus.time_count = int(
                                                             (self.line.dist_list[main_id - 1] - DIS_FIX) /
                                                             self.line.speed_list[main_id - 1])
 
@@ -1302,6 +1308,9 @@ class Sim:
                                                 len(cur_bus.pass_list[k])
                                             )
 
+                                        cur_bus.sort_passengers(
+                                            station=main_id, pas_info=self.all_passengers, mode=self.sim_mode)
+
                                 else:  # side_id > 0
                                     if side_order < len(self.line.side_line[f'{main_id}#{side_id}'].side_stations):
                                         cur_bus.running = True
@@ -1397,6 +1406,9 @@ class Sim:
                                                 len(cur_bus.pass_list[k])
                                             )
 
+                                        cur_bus.sort_passengers(
+                                            station=main_id, pas_info=self.all_passengers, mode=self.sim_mode)
+
                                 else:  # side_id > 0
                                     cur_bus.running = True
                                     assert cur_bus.is_waiting is False
@@ -1490,9 +1502,9 @@ class Sim:
                                         cur_bus.able = False
                                         cur_bus.new_bus = [new_bus_front.bus_id, new_bus_rear.bus_id]
                                         new_bus_front.running, new_bus_rear.running = True, True
-                                        new_bus_front.loc, new_bus_rear.loc = f'{main_id}#0#0#5', f'{main_id}#0#0#5'
+                                        new_bus_front.loc, new_bus_rear.loc = f'{main_id + 1}#0#0#0', f'{main_id + 1}#0#0#0'
                                         new_bus_front.run_next, new_bus_rear.run_next = \
-                                            f'{main_id + 1}#0#0#0', f'{main_id + 1}#0#0#0'
+                                            f'{main_id + 1}#0#0#5', f'{main_id + 1}#0#0#5'
 
                                         for cab in new_bus_front.cab_id:
                                             self.all_cabs[cab]['dist'] += self.line.dist_list[main_id - 1]  # 记录累计距离
@@ -1545,7 +1557,7 @@ class Sim:
                                         cur_bus.able, comb_bus.able = False, False
                                         cur_bus.new_bus, comb_bus.new_bus = new_bus.bus_id, new_bus.bus_id
                                         new_bus.running = True
-                                        new_bus.loc, new_bus.run_next = f'{main_id}#0#0#5', f'{main_id + 1}#0#0#0'
+                                        new_bus.loc, new_bus.run_next = f'{main_id + 1}#0#0#0', f'{main_id + 1}#0#0#5'
                                         for cab in new_bus.cab_id:
                                             self.all_cabs[cab]['dist'] += self.line.dist_list[main_id - 1]  # 记录累计距离
                                         new_bus.sort_passengers(
@@ -1639,8 +1651,7 @@ class Sim:
                                                 s_station=cur_station + COMB_FORE_STA,
                                                 e_station=self.line.max_station_num)
                                             if self.all_buses[pot_bus].pass_num == 0 or \
-                                                    next_n_down_num / self.all_buses[
-                                                pot_bus].pass_num >= RATE_REAR_PASS:
+                                                    next_n_down_num / self.all_buses[pot_bus].pass_num >= RATE_REAR_PASS:
                                                 self.all_buses[pot_bus].comb_dec = [cur_bus.bus_id, 0]
                                                 cur_bus.comb_dec = [pot_bus, 1]
                                                 break
@@ -1784,6 +1795,7 @@ class Sim:
                 'arr_time': [],  # 入站时间
                 'dep_time': [],  # 出站时间
                 'pas_num': [],  # 乘客人数
+                'dist_test': []  # 距离测试站点
             }  # 记录行驶距离
         self.next_bus_id += 1
         self.next_cab_id += dec
@@ -2154,7 +2166,7 @@ if __name__ == '__main__':
     multi_dec_rule = 'up_first'
     sim = Sim(**line_info, sim_mode='multi_order', multi_dec_rule=multi_dec_rule, record_time=None)
     sim.can_reorg = True
-    sim.print_log = True
+    sim.print_log = False
     # sim.get_record = None
     # sim.get_record = (9 * 3600, 9.2 * 3600)
     sim.run()
