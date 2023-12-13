@@ -167,8 +167,10 @@ class Sim:
                 self.update_dep(dec=dep_dec, cap=dep_cap)
 
             # debug phase
-            if self.t == 28148:
+            if self.t == 22558:
                 logging.debug('time debug')
+            # if 4 in self.all_buses.keys():
+            #     logging.error(f'bus debug at {self.all_buses[4].loc} at time {self.t}')
             if self.all_buses[0].loc == '7@0':
                 logging.debug(f'location debug at {self.t}')
             if self.t % 3600 == 0 and self.print_log:
@@ -774,7 +776,7 @@ class Sim:
                                             if down_num + on_num < 0.2:
                                                 if self.print_log:
                                                     logging.error(
-                                                        f'nobody gets on or off at station={main_id} at {self.t} when not returning with pas number={cur_bus.pass_num}')
+                                                        f'({cur_bus}): nobody gets on or off at station={main_id} at {self.t} when not returning with pas number={cur_bus.pass_num}')
                                             have_decided_list.append(cur_bus.bus_id)
                                             # 下一站
                                             if main_id == self.line.max_station_num and cur_bus.to_turn == 0:
@@ -875,7 +877,7 @@ class Sim:
                                                             self.line.main_line[main_id]) == 0
                                                     if self.print_log:
                                                         logging.error(
-                                                            f'nobody gets on or off at station={main_id} at {self.t} when not returning with pas number={self.all_buses[dec_list[ind]].pass_num}')
+                                                            f'({self.all_buses[dec_list[ind]]}): nobody gets on or off at station={main_id} at {self.t} when not returning with pas number={self.all_buses[dec_list[ind]].pass_num}')
                                                 # 下一站
                                                 sel_bus = self.all_buses[dec_list[ind]]
                                                 if main_id == self.line.max_station_num and sel_bus.to_turn == 0:
@@ -1041,7 +1043,7 @@ class Sim:
                                             if down_num + on_num < 0.2:
                                                 if self.print_log:
                                                     logging.error(
-                                                        f'nobody gets on or off at station={cur_bus.loc} at {self.t} when not returning with pas number={cur_bus.pass_num}')
+                                                        f'({cur_bus}): nobody gets on or off at station={cur_bus.loc} at {self.t} when not returning with pas number={cur_bus.pass_num}')
                                             have_decided_list.append(cur_bus.bus_id)
                                             # 下一站
                                             cur_bus.is_waiting, cur_bus.to_stop = False, False
@@ -1097,7 +1099,7 @@ class Sim:
                                             if on_num < 0.2:
                                                 if self.print_log:
                                                     logging.error(
-                                                        f'nobody gets on or off at station={main_id} at {self.t} when returning')
+                                                        f'({cur_bus}): nobody gets on or off at station={main_id} at {self.t} when returning')
                                             have_decided_list.append(cur_bus.bus_id)
                                             # 下一站
                                             if main_id == self.line.max_station_num:
@@ -1171,7 +1173,7 @@ class Sim:
                                                             self.line.main_line[main_id]) == 0
                                                     if self.print_log:
                                                         logging.error(
-                                                            f'nobody gets on or off at station={main_id} at {self.t} when returning')
+                                                            f'({self.all_buses[dec_list[ind]]}): nobody gets on or off at station={main_id} at {self.t} when returning')
                                                 # 下一站
                                                 sel_bus = self.all_buses[dec_list[ind]]
                                                 assert sel_bus.to_turn == 0
@@ -1243,7 +1245,7 @@ class Sim:
                                         if on_num < 0.2:
                                             if self.print_log:
                                                 logging.error(
-                                                    f'nobody gets on or off at station={cur_bus.loc} at {self.t} when returning')
+                                                    f'({cur_bus}): nobody gets on or off at station={cur_bus.loc} at {self.t} when returning')
                                         # 下一站
                                         cur_bus.is_waiting, cur_bus.to_stop = False, False
                                         cur_bus.running, cur_bus.stop_count = True, 0
@@ -2135,13 +2137,13 @@ class Sim:
 
 
 if __name__ == '__main__':
-    line_info = read_in(way='total', fractile=0.5)
+    line_info = read_in(way='total', fractile=None)
     start = time.time()
 
     # optimization for single line
     # plan 1
-    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
-    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
+    line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
+    line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
     # plan 2
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 480, 480, 480, 480, 720, 720, 840, 840, 720, 720, 660, 660, 720, 720, 720, 720]
@@ -2152,7 +2154,7 @@ if __name__ == '__main__':
     multi_dec_rule = 'up_first'
     sim = Sim(**line_info, sim_mode='multi_order', multi_dec_rule=multi_dec_rule, record_time=None)
     sim.can_reorg = True
-    sim.print_log = False
+    sim.print_log = True
     # sim.get_record = None
     # sim.get_record = (9 * 3600, 9.2 * 3600)
     sim.run()

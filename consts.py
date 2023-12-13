@@ -83,4 +83,4 @@ ONLY_MAIN_LINE_STOP_THRESHOLD = 0  # 主线站点停站的等待车辆数阈值
 
 # crowd mark consts
 INTERVAL = 10 * 60
-NUM_THRESHOLD = 7  # 10: 12%, 7: 28%, 4: 50%
+NUM_THRESHOLD = 16  # 10: 12%, 7: 28%, 4: 50%

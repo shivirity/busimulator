@@ -574,6 +574,8 @@ class RouteDecider:
                     have_down_list = [bus for bus in dis_return_run_buses if bus_info[bus].is_to_stop(station=main_id)]
                     # 没有原地下车的人
                     no_down_list = [val for val in dis_return_run_buses if val not in have_down_list]
+                    # 已决策在主线停留的车辆
+                    main_stop_list = []
                     # 分配原地不下车
                     if len(no_down_list) > 0:
                         for bus in no_down_list:
@@ -593,7 +595,7 @@ class RouteDecider:
                                     decide_turn[2]) > 0.2:
                                 # 两边都有车且都没有原地下车
                                 if len(line.main_line[main_id]) > 0 and \
-                                        len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
+                                        len(stop_buses) + len(have_down_list) + len(main_stop_list) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
                                         cur_bus.pass_num < cur_bus.max_num:  # 有人在主线上
                                     dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
                                 else:
@@ -613,7 +615,7 @@ class RouteDecider:
                                     dec_num += 1
                                 else:
                                     if len(line.main_line[main_id]) > 0 and \
-                                            len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
+                                            len(stop_buses) + len(have_down_list) + len(main_stop_list) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
                                             cur_bus.pass_num < cur_bus.max_num:
                                         dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
                                     else:
@@ -633,7 +635,7 @@ class RouteDecider:
                                     dec_num += 1
                                 else:
                                     if len(line.main_line[main_id]) > 0 and \
-                                            len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
+                                            len(stop_buses) + len(have_down_list) + len(main_stop_list) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
                                             cur_bus.pass_num < cur_bus.max_num:
                                         dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
                                     else:
@@ -671,9 +673,10 @@ class RouteDecider:
                                     dec_num += 1
                                 else:
                                     if len(line.main_line[main_id]) > 0 and \
-                                            len(stop_buses) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
+                                            len(stop_buses) + len(have_down_list) + len(main_stop_list) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
                                             cur_bus.pass_num < cur_bus.max_num:
                                         dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
+                                        main_stop_list.append(bus)
                                     else:
                                         if side_1_down + side_2_down > 0.2:
                                             dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
