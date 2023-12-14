@@ -4,7 +4,7 @@ import random
 import numpy as np
 import pandas as pd
 
-from consts import DIS_FIX, PASSENGER_SPEED, INTERVAL, NUM_THRESHOLD
+from consts import DIS_FIX, PASSENGER_SPEED, INTERVAL, NUM_UB, NUM_LB
 from env.passenger import get_distance
 
 random.seed(42)
@@ -61,7 +61,7 @@ class Line:
             for i in range(side_line_info.shape[0])
         }
 
-    def get_chain_data(self, pass_info: pd.DataFrame, interval: int, num_threshold: int):
+    def get_chain_data(self, pass_info: pd.DataFrame, interval: int, num_ub: int, num_lb: int):
         """
         数据处理+拥挤程度标注，拥挤则人员在支线等待，不拥挤则人员前往主线乘车
 
@@ -76,6 +76,7 @@ class Line:
                        int(((x['up_time'] - 20191015000000) % 10000) / 100) * 60 +
                        (x['up_time'] - 20191015000000) % 100 - self.get_random_t()), axis=1)
         # get crowd mark
+        crow_mark_time_list = []
         pass_info['crowd_mark'] = -1
         for i in range(pass_info.shape[0]):
             if pass_info.loc[i, 'crowd_mark'] < -0.1:
@@ -84,14 +85,17 @@ class Line:
                 up_time_lb, up_time_ub = (up_time // interval) * interval, (up_time // interval + 1) * interval
                 tmp_df = pass_info[(pass_info['current_location'] == up_station) & (up_time_lb <= pass_info['start_time']) & (pass_info['start_time'] < up_time_ub)]
                 for ind in tmp_df.index:
-                    if tmp_df.shape[0] >= num_threshold:
+                    if num_lb <= tmp_df.shape[0] < num_ub:
                         assert pass_info.loc[ind, 'crowd_mark'] in [-1, 1]
                         pass_info.loc[ind, 'crowd_mark'] = 1
+                        crow_mark_time_list.append(pass_info.loc[ind, 'start_time'])
                     else:
                         assert pass_info.loc[ind, 'crowd_mark'] in [-1, 0]
                         pass_info.loc[ind, 'crowd_mark'] = 0
             else:
                 pass  # do nothing
+        if len(crow_mark_time_list) > 0:
+            print(f'min start time: {min(crow_mark_time_list)}, max start time: {max(crow_mark_time_list)}')
         print(f"number of p waiting at side lines: {sum(pass_info['crowd_mark'])}/{pass_info.shape[0]}={sum(pass_info['crowd_mark'])/pass_info.shape[0]}")
 
         return pass_info
@@ -258,8 +262,8 @@ class Line:
         """
         pass_info = pd.read_csv(r'D:\mofangbus\busimulator\data\line_810\chain_data.csv', encoding='utf-8')
         pass_info = pass_info[pass_info['direction'] == self.direc].reset_index(drop=True)
-        pass_info = self.get_chain_data(pass_info=pass_info, interval=INTERVAL, num_threshold=NUM_THRESHOLD)
-        s_pos_l, s_t_l, s_loc_l, e_loc_l, e_pos_l = [], [], [], [], []
+        pass_info = self.get_chain_data(pass_info=pass_info, interval=INTERVAL, num_ub=NUM_UB, num_lb=NUM_LB)
+        s_pos_l, s_t_l, s_loc_l, e_loc_l, e_pos_l, side_flag_l = [], [], [], [], [], []
         for i in range(pass_info.shape[0]):
             up_lat, up_lon, up_station, down_station = pass_info.loc[i, 'up_lat'], pass_info.loc[i, 'up_lon'], \
                                                        pass_info.loc[i, 'current_location'], \
@@ -273,6 +277,7 @@ class Line:
             # baseline and 单线优化
             if self.mode in ['baseline', 'single']:
                 up_loc, down_loc = self.station_list.index(up_station) + 1, self.station_list.index(down_station) + 1
+                side_flag = False
             elif self.mode == 'multi':  # 主线+支线
                 up_loc, down_loc = self.get_side_line_up_and_down_loc(up_lat=up_lat, up_lon=up_lon, down_lat=down_lat,
                                                                       down_lon=down_lon, ori_lat=ori_lat,
@@ -280,6 +285,7 @@ class Line:
                 new_up_t = self.get_new_up_t(arr_loc=up_loc, sta_lat=ori_lat, sta_lon=ori_lon, up_t=up_t)
                 if new_up_t is not None:
                     up_t = new_up_t
+                side_flag = True
             else:
                 if pass_info.loc[i, 'crowd_mark'] == 1:  # 支线
                     up_loc, down_loc = self.get_side_line_up_and_down_loc(up_lat=up_lat, up_lon=up_lon,
@@ -290,9 +296,11 @@ class Line:
                     new_up_t = self.get_new_up_t(arr_loc=up_loc, sta_lat=ori_lat, sta_lon=ori_lon, up_t=up_t)
                     if new_up_t is not None:
                         up_t = new_up_t
+                    side_flag = True
                 else:  # 主线
                     if up_station in self.station_list and down_station in self.station_list:
                         up_loc, down_loc = self.station_list.index(up_station) + 1, self.station_list.index(down_station) + 1
+                        side_flag = False
                     else:
                         up_loc, down_loc = self.get_side_line_up_and_down_loc(up_lat=up_lat, up_lon=up_lon,
                                                                               down_lat=down_lat,
@@ -302,12 +310,14 @@ class Line:
                         new_up_t = self.get_new_up_t(arr_loc=up_loc, sta_lat=ori_lat, sta_lon=ori_lon, up_t=up_t)
                         if new_up_t is not None:
                             up_t = new_up_t
+                        side_flag = True
 
             s_pos_l.append((ori_lat, ori_lon))
             s_t_l.append(up_t)
             s_loc_l.append(up_loc)
             e_loc_l.append(down_loc)
             e_pos_l.append((fin_lat, fin_lon))
+            side_flag_l.append(side_flag)
 
         pass_df = pd.DataFrame({
             'start_pos': s_pos_l,
@@ -315,6 +325,7 @@ class Line:
             'start_loc': s_loc_l,
             'end_loc': e_loc_l,
             'end_pos': e_pos_l,
+            'side_flag': side_flag_l,
         })
         pass_df = pass_df.sort_values(by=['arrive_t'], ascending=[True]).reset_index(drop=True)
         return pass_df

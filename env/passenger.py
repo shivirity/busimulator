@@ -24,13 +24,15 @@ def get_distance(lat1, lon1, lat2, lon2):
 
 class Passenger:
 
-    def __init__(self, pas_id: int, start_pos: tuple, start_loc: int, arrive_time: int, end_pos: tuple, end_loc: int):
+    def __init__(self, pas_id: int, start_pos: tuple, start_loc: int,
+                 arrive_time: int, end_pos: tuple, end_loc: int, side_flag: bool):
         self.pas_id = pas_id  # 用户编号
         self.start_pos = start_pos  # 出发坐标
         self.start_loc = start_loc  # 出发站点
         self.arr_t = arrive_time  # 到站时刻
         self.end_pos = end_pos  # 到站坐标
         self.end_loc = end_loc  # 到站站点
+        self.side_flag = side_flag  # 是否支线出行，True代表是，False代表否
 
         self.down_loc = None  # 下车站点, 用于mode='multi'
 

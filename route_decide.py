@@ -4,7 +4,7 @@ from env.bus import Bus
 from env.line import Line
 
 from consts import RATE_MAX_STOP, MAIN_LINE_STOP_TURN_THRESHOLD, MAIN_LINE_STOP_TURN_RATE_THRESHOLD, \
-    ONLY_MAIN_LINE_STOP_THRESHOLD
+    ONLY_MAIN_LINE_STOP_THRESHOLD, MAIN_LINE_TURN_MAX_PASS_NUM
 
 random.seed(42)
 
@@ -617,12 +617,19 @@ class RouteDecider:
                             elif side_1_bus_num + len(decide_turn[1]) > 0.2:  # 有车在#1
                                 if sum_2_up > 0.2:
                                     # 有人在#2等待
-                                    if side_1_down > 0:
-                                        dec_dict[bus] = {'stop': True, 'turn': 2, 'can_return_stop': True}
-                                        main_stop_list.append(bus)
+                                    if cur_bus.pass_num <= MAIN_LINE_TURN_MAX_PASS_NUM:
+                                        if side_1_down > 0:
+                                            dec_dict[bus] = {'stop': True, 'turn': 2, 'can_return_stop': True}
+                                            main_stop_list.append(bus)
+                                        else:
+                                            dec_dict[bus] = {'stop': False, 'turn': 2, 'can_return_stop': True}
+                                        decide_turn[2].append(bus)
                                     else:
-                                        dec_dict[bus] = {'stop': False, 'turn': 2, 'can_return_stop': True}
-                                    decide_turn[2].append(bus)
+                                        if side_1_down + side_2_down > 0:
+                                            dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
+                                            main_stop_list.append(bus)
+                                        else:
+                                            dec_dict[bus] = {'stop': False, 'turn': 0, 'can_return_stop': False}
                                     dec_num += 1
                                 else:
                                     if len(line.main_line[main_id]) > 0 and \
@@ -640,12 +647,19 @@ class RouteDecider:
                             elif side_2_bus_num + len(decide_turn[2]) > 0.2:
                                 if sum_1_up > 0.2:
                                     # 有人在#1等待
-                                    if side_2_down > 0:
-                                        dec_dict[bus] = {'stop': True, 'turn': 1, 'can_return_stop': True}
-                                        main_stop_list.append(bus)
+                                    if cur_bus.pass_num <= MAIN_LINE_TURN_MAX_PASS_NUM:
+                                        if side_2_down > 0:
+                                            dec_dict[bus] = {'stop': True, 'turn': 1, 'can_return_stop': True}
+                                            main_stop_list.append(bus)
+                                        else:
+                                            dec_dict[bus] = {'stop': False, 'turn': 1, 'can_return_stop': True}
+                                        decide_turn[1].append(bus)
                                     else:
-                                        dec_dict[bus] = {'stop': False, 'turn': 1, 'can_return_stop': True}
-                                    decide_turn[1].append(bus)
+                                        if side_1_down + side_2_down > 0:
+                                            dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
+                                            main_stop_list.append(bus)
+                                        else:
+                                            dec_dict[bus] = {'stop': False, 'turn': 0, 'can_return_stop': False}
                                     dec_num += 1
                                 else:
                                     if len(line.main_line[main_id]) > 0 and \
@@ -675,19 +689,33 @@ class RouteDecider:
                                             turn_direc = 1 if early_1_up < early_2_up else 2
                                         else:
                                             turn_direc = random.randint(1, 2)
-                                    if turn_direc == 1:
-                                        if side_2_down > 0:
-                                            dec_dict[bus] = {'stop': True, 'turn': turn_direc, 'can_return_stop': True}
-                                            main_stop_list.append(bus)
+                                    if cur_bus.pass_num <= MAIN_LINE_TURN_MAX_PASS_NUM:
+                                        if turn_direc == 1:
+                                            if side_2_down > 0:
+                                                dec_dict[bus] = {'stop': True, 'turn': turn_direc, 'can_return_stop': True}
+                                                main_stop_list.append(bus)
+                                            else:
+                                                dec_dict[bus] = {'stop': False, 'turn': turn_direc, 'can_return_stop': True}
                                         else:
-                                            dec_dict[bus] = {'stop': False, 'turn': turn_direc, 'can_return_stop': True}
+                                            if side_1_down > 0:
+                                                dec_dict[bus] = {'stop': True, 'turn': turn_direc, 'can_return_stop': True}
+                                                main_stop_list.append(bus)
+                                            else:
+                                                dec_dict[bus] = {'stop': False, 'turn': turn_direc, 'can_return_stop': True}
+                                        decide_turn[turn_direc].append(bus)
                                     else:
-                                        if side_1_down > 0:
-                                            dec_dict[bus] = {'stop': True, 'turn': turn_direc, 'can_return_stop': True}
+                                        if side_1_down + side_2_down > 0.2:
+                                            dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
                                             main_stop_list.append(bus)
                                         else:
-                                            dec_dict[bus] = {'stop': False, 'turn': turn_direc, 'can_return_stop': True}
-                                    decide_turn[turn_direc].append(bus)
+                                            if len(line.main_line[main_id]) > 0 and \
+                                                    len(stop_buses) + len(have_down_list) + len(
+                                                main_stop_list) <= ONLY_MAIN_LINE_STOP_THRESHOLD and \
+                                                    cur_bus.pass_num < cur_bus.max_num:
+                                                dec_dict[bus] = {'stop': True, 'turn': 0, 'can_return_stop': False}
+                                                main_stop_list.append(bus)
+                                            else:
+                                                dec_dict[bus] = {'stop': False, 'turn': 0, 'can_return_stop': False}
                                     dec_num += 1
                                 else:
                                     if len(line.main_line[main_id]) > 0 and \

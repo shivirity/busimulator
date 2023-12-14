@@ -174,6 +174,12 @@ class Sim:
             # #     at_bus = int([bus.bus_id for bus in self.all_buses.values() if (10 in bus.cab_id) and (bus.able is True)][0])
             # #     print(f'bus {at_bus} debug at {self.all_buses[at_bus].loc} at '
             # #                   f'time {self.t} with {self.all_buses[at_bus].to_stop} with {self.all_buses[at_bus].time_count} with {[len(val) for val in self.all_buses[at_bus].pass_list]}')
+
+            # if 97 in self.all_buses.keys():
+            #     print(self.all_buses[97].loc)
+            #     if self.all_buses[97].loc == '13#0#0#0':
+            #         logging.debug(f'location debug at {self.t}')
+
             # if self.all_buses[0].loc == '7@0':
             #     logging.debug(f'location debug at {self.t}')
             # if self.t % 3600 == 0 and self.print_log:
@@ -181,7 +187,7 @@ class Sim:
             # if '4#2#0#0' in [bus.loc for bus in self.all_buses.values()]:
             #     logging.debug(f'bus debug at {self.t}')
 
-            # pas_id = 150
+            # pas_id = 337
             # if pas_id in self.all_passengers.keys():
             #     for bus in self.all_buses.values():
             #         if bus.able is True:
@@ -272,7 +278,8 @@ class Sim:
                         start_loc=self.line.passenger_pool.loc[self.pas_idx, 'start_loc'],
                         arrive_time=self.line.passenger_pool.loc[self.pas_idx, 'arrive_t'],
                         end_pos=self.line.passenger_pool.loc[self.pas_idx, 'end_pos'],
-                        end_loc=self.line.passenger_pool.loc[self.pas_idx, 'end_loc']
+                        end_loc=self.line.passenger_pool.loc[self.pas_idx, 'end_loc'],
+                        side_flag=bool(self.line.passenger_pool.loc[self.pas_idx, 'side_flag']),
                     )
                     if self.sim_mode in ['baseline', 'single']:
                         self.line.main_line[pas.start_loc].append(pas)
@@ -2147,6 +2154,58 @@ class Sim:
             'cab num': len(self.all_cabs),
         }
 
+    def get_special_statistics(self, special_list=None):
+        """获取特殊乘客的统计数据"""
+        special_ids = [pas_id for pas_id, pas in self.all_passengers.items() if pas.side_flag is True] \
+            if special_list is None else special_list
+
+        avg_travel_t, avg_wait_t, full_t, avg_station_wait_t, avg_move_dist = 0, 0, 0, 0, 0
+        num_early, num_noon, num_late = 0, 0, 0
+        avg_on_move_dist, avg_down_move_dist = 0, 0
+
+        if special_ids:
+            for pas_id in special_ids:
+                pas = self.all_passengers[pas_id]
+                # at different time
+                avg_travel_t += pas.travel_t
+                avg_wait_t += pas.bus_wait_t
+                full_t += pas.full_jour_t
+                avg_station_wait_t += pas.station_wait_t
+                avg_move_dist += pas.move_dist
+                if EARLY_HIGH_START_T <= pas.arr_t < EARLY_HIGH_END_T:
+                    num_early += 1
+                elif NOON_START_T <= pas.arr_t < NOON_END_T:
+                    num_noon += 1
+                elif LATE_HIGH_START_T <= pas.arr_t < LATE_HIGH_END_T:
+                    num_late += 1
+
+                # all passengers
+                avg_on_move_dist += pas.on_move_dist
+                avg_down_move_dist += pas.down_move_dist
+
+            # at different time
+            avg_travel_t /= (len(special_ids) * 60)
+            avg_wait_t /= (len(special_ids) * 60)
+            full_t /= (len(special_ids) * 60)
+            avg_station_wait_t /= (len(special_ids) * 60)
+            avg_move_dist /= len(special_ids)
+            # all passengers
+            avg_on_move_dist /= len(special_ids)
+            avg_down_move_dist /= len(special_ids)
+
+        return {
+            'num_early': num_early,
+            'num_noon': num_noon,
+            'num_late': num_late,
+            'avg_travel_t(on bus, min)': avg_travel_t,
+            'avg_travel_t(full, min)': full_t,
+            'avg_wait_t(min)': avg_wait_t,
+            'avg_station_wait_t(min)': avg_station_wait_t,
+            'avg_move_dist(m)': avg_move_dist,
+            'avg_on_move_dist(m)': avg_on_move_dist,
+            'avg_down_move_dist(m)': avg_down_move_dist,
+        }
+
 
 if __name__ == '__main__':
     line_info = read_in(way='total', fractile=None)
@@ -2171,6 +2230,10 @@ if __name__ == '__main__':
     # sim.get_record = (9 * 3600, 9.2 * 3600)
     sim.run()
     sim_result = sim.get_statistics()
+    special_list = None
+    special_list = [519, 531, 539, 540, 545, 549, 556, 558, 567, 581, 583, 743, 749, 753, 756, 758, 760, 762, 764, 772, 774, 776, 777, 780, 1128, 1130, 1136, 1147, 1156, 1159, 1160, 1161, 1162, 1163, 1164, 1165, 1172, 1422, 1427, 1431, 1439, 1441, 1443, 1450, 1452, 1454, 1455, 1459, 1462, 1924, 1926, 1937, 1938, 1940, 1943, 1955, 1959, 1960, 1970, 1972, 2007, 2026, 2035, 2042, 2046, 2051, 2052, 2054, 2057, 2059, 2066, 2309, 2318, 2320, 2325, 2329, 2331, 2344, 2349, 2357, 2359, 2371, 2599, 2604, 2609, 2620, 2634, 2635, 2641, 2648, 2653, 2667, 2688, 2817, 2830, 2833, 2839, 2843, 2849, 2850, 2856, 2858, 2864, 2874, 2978, 2983, 2990, 2995, 2998, 3009, 3010, 3011, 3017, 3018, 3041, 3382, 3387, 3394, 3407, 3415, 3416, 3419, 3421, 3423, 3424, 3426, 3435]
+
+    sim_special_passenger = sim.get_special_statistics(special_list=special_list)
     print('runtime: {:.2f}s'.format((time.time() - start)))
     if sim.sim_mode in ['baseline', 'single']:
         print(f'optimal travel time on bus: {sim.get_passenger_optimal()} min')

@@ -76,11 +76,17 @@ COMB_DURATION = 22  # comb的预期时间
 COMB_DIST = 183  # comb的预期距离
 
 # multi-mode consts
+# down_first
 MAIN_LINE_STOP_TURN_THRESHOLD = 2  # 主线站点转向阈值人数
 MAIN_LINE_STOP_TURN_RATE_THRESHOLD = 0.2  # 主线站点转向阈值比例
+# up first
+MAIN_LINE_TURN_MAX_PASS_NUM = 9  # 主线站点转向最大人数
 
 ONLY_MAIN_LINE_STOP_THRESHOLD = 0  # 主线站点停站的等待车辆数阈值
 
 # crowd mark consts
 INTERVAL = 10 * 60
-NUM_THRESHOLD = 100000  # 10: 12%, 7: 28%, 4: 50%
+
+# (11, 14): 4%, (10, 14): 10%, (6, 14): 28%, (4, 14): 51%
+NUM_UB = 14  # 14
+NUM_LB = 10  # 11
