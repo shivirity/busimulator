@@ -116,7 +116,7 @@ class Sim:
         self.pas_idx = 0
 
         # 结合和分离决策与相应日志
-        self.can_reorg = None  # 用于测试结合和分离的效果，仅限于 sim_mode == 'single'
+        self.can_reorg = None  # 用于测试结合和分离的效果，仅限于 sim_mode == ['single', 'multi_order']
         self.reorg_log = []  # 用于记录结合和分离的日志[(time, code)] code: 0-结合，1-分离
 
         # 日志输出
@@ -813,7 +813,7 @@ class Sim:
                                                     cur_bus.run_next = f'{main_id + 1}#0#0#0'
                                                     cur_bus.time_count = int(
                                                         (self.line.dist_list[main_id - 1] - DIS_FIX) /
-                                                        self.line.speed_list[main_id - 1])
+                                                        self.line.speed_list[main_id - 1]) + 1
 
                                                 # record number of passengers on current bus
                                                 for k in range(len(cur_bus.cab_id)):
@@ -914,7 +914,7 @@ class Sim:
                                                         sel_bus.run_next = f'{main_id + 1}#0#0#0'
                                                         sel_bus.time_count = int(
                                                             (self.line.dist_list[main_id - 1] - DIS_FIX) /
-                                                            self.line.speed_list[main_id - 1])
+                                                            self.line.speed_list[main_id - 1]) + 1
 
                                                     # record number of passengers on current bus
                                                     for k in range(len(sel_bus.cab_id)):
@@ -1679,66 +1679,70 @@ class Sim:
             for bus in available_dec_bus:
                 cur_bus = self.all_buses[bus]
                 assert cur_bus.loc.endswith('#0#0#5')
-                # 分离决策
-                if cur_bus.cab_num > 1.8:
-                    cur_station = int(cur_bus.loc.split('#')[0])
-                    next_down_num = sum(cur_bus.stop_num_at_side_line(main_line_id=cur_station + 1)) + \
-                                    cur_bus.stop_pass_num(station=cur_station + 1)
-                    if next_down_num > MIN_SEP_PASS_NUM_MULTI:  # 下站下车人数到达下限
-                        not_down_num = cur_bus.pass_num - next_down_num
-                        if not_down_num * self.stop_time >= \
-                                SEP_DURATION - SEP_DIST / self.line.speed_list[cur_station - 1]:  # 不下车乘客时间节约效果
-                            sep_cab_num = int(next_down_num / cur_bus.max_num_list[0]) + 1
-                            cur_bus.sep_dec = sep_cab_num if sep_cab_num < cur_bus.cab_num else \
-                                round(cur_bus.cab_num - 1)
+                if self.can_reorg:
+                    # 分离决策
+                    if cur_bus.cab_num > 1.8:
+                        cur_station = int(cur_bus.loc.split('#')[0])
+                        next_down_num = sum(cur_bus.stop_num_at_side_line(main_line_id=cur_station + 1)) + \
+                                        cur_bus.stop_pass_num(station=cur_station + 1)
+                        if next_down_num > MIN_SEP_PASS_NUM_MULTI:  # 下站下车人数到达下限
+                            not_down_num = cur_bus.pass_num - next_down_num
+                            if not_down_num * self.stop_time >= \
+                                    SEP_DURATION - SEP_DIST / self.line.speed_list[cur_station - 1]:  # 不下车乘客时间节约效果
+                                sep_cab_num = int(next_down_num / cur_bus.max_num_list[0]) + 1
+                                cur_bus.sep_dec = sep_cab_num if sep_cab_num < cur_bus.cab_num else \
+                                    round(cur_bus.cab_num - 1)
+                            else:
+                                pass
                         else:
                             pass
                     else:
                         pass
-                else:
-                    pass
-                # 结合决策
-                if cur_bus.sep_dec is None:
-                    loc_dict = self.get_loc_dict()
-                    cur_station = int(cur_bus.loc.split('#')[0])
-                    cur_loc_code = f'{cur_station}#0#5'
-                    pot_comb_buses = [b for b in loc_dict[cur_loc_code]
-                                      if (self.all_buses[b].sep_dec is None
-                                          and self.all_buses[b].comb_dec is None
-                                          and self.all_buses[b].sep_state is None
-                                          and self.all_buses[b].comb_state is None
-                                          and b != cur_bus.bus_id)]
-                    pot_comb_order = sorted(pot_comb_buses, key=lambda x: self.all_buses[x].time_count, reverse=True)
-                    for pot_bus in pot_comb_order:
-                        if cur_bus.cab_num + self.all_buses[pot_bus].cab_num < 3.2:
-                            # cond1: enough distance to cover
-                            if self.all_buses[pot_bus].time_count < COMB_DIST / self.line.speed_list[
-                                cur_station - 1] + \
-                                    (1 - RATE_COMB_ROUTE_MULTI) * \
-                                    ((self.line.dist_list[cur_station - 1] - COMB_DIST) / self.line.speed_list[
-                                        cur_station - 1]):
-                                # cond2: much to get off in the front bus
-                                next_n_down_num = self.all_buses[pot_bus].get_off_pas_num(
-                                    s_station=cur_station + 2, e_station=cur_station + COMB_FORE_STA_MULTI)
-                                if self.all_buses[pot_bus].pass_num == 0 or \
-                                        next_n_down_num / self.all_buses[pot_bus].pass_num >= RATE_FRONT_PASS_MULTI:
-                                    # cond3: much to stay on the rear bus
-                                    next_n_down_num = cur_bus.get_off_pas_num(
-                                        s_station=cur_station + COMB_FORE_STA_MULTI,
-                                        e_station=self.line.max_station_num)
+                    # 结合决策
+                    if cur_bus.sep_dec is None:
+                        loc_dict = self.get_loc_dict()
+                        cur_station = int(cur_bus.loc.split('#')[0])
+                        cur_loc_code = f'{cur_station}#0#5'
+                        pot_comb_buses = [b for b in loc_dict[cur_loc_code]
+                                          if (self.all_buses[b].sep_dec is None
+                                              and self.all_buses[b].comb_dec is None
+                                              and self.all_buses[b].sep_state is None
+                                              and self.all_buses[b].comb_state is None
+                                              and b != cur_bus.bus_id)]
+                        pot_comb_order = sorted(pot_comb_buses, key=lambda x: self.all_buses[x].time_count, reverse=True)
+                        for pot_bus in pot_comb_order:
+                            if cur_bus.cab_num + self.all_buses[pot_bus].cab_num < 3.2:
+                                # cond1: enough distance to cover
+                                if self.all_buses[pot_bus].time_count < COMB_DIST / self.line.speed_list[
+                                    cur_station - 1] + \
+                                        (1 - RATE_COMB_ROUTE_MULTI) * \
+                                        ((self.line.dist_list[cur_station - 1] - COMB_DIST) / self.line.speed_list[
+                                            cur_station - 1]):
+                                    # cond2: much to get off in the front bus
+                                    next_n_down_num = self.all_buses[pot_bus].get_off_pas_num(
+                                        s_station=cur_station + 2, e_station=cur_station + COMB_FORE_STA_MULTI)
                                     if self.all_buses[pot_bus].pass_num == 0 or \
-                                            next_n_down_num / self.all_buses[pot_bus].pass_num >= RATE_REAR_PASS_MULTI:
-                                        self.all_buses[pot_bus].comb_dec = [cur_bus.bus_id, 0]
-                                        cur_bus.comb_dec = [pot_bus, 1]
-                                        break
+                                            next_n_down_num / self.all_buses[pot_bus].pass_num >= RATE_FRONT_PASS_MULTI:
+                                        # cond3: much to stay on the rear bus
+                                        next_n_down_num = cur_bus.get_off_pas_num(
+                                            s_station=cur_station + COMB_FORE_STA_MULTI,
+                                            e_station=self.line.max_station_num)
+                                        if self.all_buses[pot_bus].pass_num == 0 or \
+                                                next_n_down_num / self.all_buses[pot_bus].pass_num >= RATE_REAR_PASS_MULTI:
+                                            self.all_buses[pot_bus].comb_dec = [cur_bus.bus_id, 0]
+                                            cur_bus.comb_dec = [pot_bus, 1]
+                                            break
+                                        else:
+                                            pass
                                     else:
                                         pass
                                 else:
                                     pass
                             else:
                                 pass
-                        else:
-                            pass
+                else:
+                    pass
+
                 cur_bus.to_dec_trans = False
 
     def get_dec_order(self):
@@ -2208,13 +2212,13 @@ class Sim:
 
 
 if __name__ == '__main__':
-    line_info = read_in(way='total', fractile=None)
+    line_info = read_in(way='total', fractile=0.5)
     start = time.time()
 
     # optimization for single line
     # plan 1
-    line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
-    line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
+    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
+    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
     # plan 2
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 480, 480, 480, 480, 720, 720, 840, 840, 720, 720, 660, 660, 720, 720, 720, 720]
@@ -2231,7 +2235,7 @@ if __name__ == '__main__':
     sim.run()
     sim_result = sim.get_statistics()
     special_list = None
-    special_list = [519, 531, 539, 540, 545, 549, 556, 558, 567, 581, 583, 743, 749, 753, 756, 758, 760, 762, 764, 772, 774, 776, 777, 780, 1128, 1130, 1136, 1147, 1156, 1159, 1160, 1161, 1162, 1163, 1164, 1165, 1172, 1422, 1427, 1431, 1439, 1441, 1443, 1450, 1452, 1454, 1455, 1459, 1462, 1924, 1926, 1937, 1938, 1940, 1943, 1955, 1959, 1960, 1970, 1972, 2007, 2026, 2035, 2042, 2046, 2051, 2052, 2054, 2057, 2059, 2066, 2309, 2318, 2320, 2325, 2329, 2331, 2344, 2349, 2357, 2359, 2371, 2599, 2604, 2609, 2620, 2634, 2635, 2641, 2648, 2653, 2667, 2688, 2817, 2830, 2833, 2839, 2843, 2849, 2850, 2856, 2858, 2864, 2874, 2978, 2983, 2990, 2995, 2998, 3009, 3010, 3011, 3017, 3018, 3041, 3382, 3387, 3394, 3407, 3415, 3416, 3419, 3421, 3423, 3424, 3426, 3435]
+    # special_list = [519, 531, 539, 540, 545, 549, 556, 558, 567, 581, 583, 743, 749, 753, 756, 758, 760, 762, 764, 772, 774, 776, 777, 780, 1128, 1130, 1136, 1147, 1156, 1159, 1160, 1161, 1162, 1163, 1164, 1165, 1172, 1422, 1427, 1431, 1439, 1441, 1443, 1450, 1452, 1454, 1455, 1459, 1462, 1924, 1926, 1937, 1938, 1940, 1943, 1955, 1959, 1960, 1970, 1972, 2007, 2026, 2035, 2042, 2046, 2051, 2052, 2054, 2057, 2059, 2066, 2309, 2318, 2320, 2325, 2329, 2331, 2344, 2349, 2357, 2359, 2371, 2599, 2604, 2609, 2620, 2634, 2635, 2641, 2648, 2653, 2667, 2688, 2817, 2830, 2833, 2839, 2843, 2849, 2850, 2856, 2858, 2864, 2874, 2978, 2983, 2990, 2995, 2998, 3009, 3010, 3011, 3017, 3018, 3041, 3382, 3387, 3394, 3407, 3415, 3416, 3419, 3421, 3423, 3424, 3426, 3435]
 
     sim_special_passenger = sim.get_special_statistics(special_list=special_list)
     print('runtime: {:.2f}s'.format((time.time() - start)))
