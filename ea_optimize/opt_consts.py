@@ -1,4 +1,4 @@
-LB_AVG_T = 32  # 32
-UB_AVG_T = 32.5  # 33
+LB_AVG_T = 50  # 32
+UB_AVG_T = 54  # 33
 
 UB_TRAVEL_T = 62.5

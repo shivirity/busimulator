@@ -64,25 +64,73 @@ def read_in(**kwargs):
         'side_line_info': side_line_info,
     }
 
-
-def read_in_for_opt():
-    # read files
-    dist_mat = pd.read_csv(rf'..\data\line_{TEST_LINE}\distance_matrix_{DIRECTION}.csv', encoding='gbk')
-    speed_df = pd.read_csv(rf'..\data\line_{TEST_LINE}\speed_list_{DIRECTION}.csv', encoding='gbk')
-    station_info = pd.read_csv(rf'..\data\line_{TEST_LINE}\station_info.csv', encoding='gbk')
-    station_info = station_info[station_info['direction'] == DIRECTION].reset_index(drop=True)
-    # get station list
-    station_list = list(station_info['station'])
-    dist_list = list(dist_mat['dist'])
-    speed_list = list(speed_df['speed'])
-    loc_list = list(zip(list(station_info['lat']), list(station_info['lon'])))
+def read_in_for_opt(**kwargs):
+    """read files"""
+    way, frac = kwargs['way'], kwargs['fractile']
+    if kwargs['fractile'] is None:
+        dist_mat = pd.read_csv(rf'..\data\line_{TEST_LINE}\distance_matrix_{DIRECTION}.csv', encoding='gbk')
+        speed_df = pd.read_csv(rf'..\data\line_{TEST_LINE}\speed_list_{DIRECTION}.csv', encoding='gbk')
+        station_info = pd.read_csv(rf'..\data\line_{TEST_LINE}\station_info.csv', encoding='gbk')
+        dep_duration_list = pd.read_csv(rf'..\data\line_{TEST_LINE}\dep_duration_{DIRECTION}.csv', encoding='gbk')
+        dep_num_list = pd.read_csv(rf'..\data\line_{TEST_LINE}\dep_num_{DIRECTION}.csv', encoding='gbk')
+        station_info = station_info[station_info['direction'] == DIRECTION].reset_index(drop=True)
+        side_line_info = pd.read_csv(rf'..\data\line_{TEST_LINE}\side_line_info_{DIRECTION}.csv', encoding='gbk')
+        # get station list
+        station_list = list(station_info['station'])
+        dist_list = list(dist_mat['dist'])
+        speed_list = list(speed_df['speed'])
+        loc_list = list(zip(list(station_info['lat']), list(station_info['lon'])))
+        dep_duration_list = list(dep_duration_list['dep_duration'])
+        dep_num_list = list(dep_num_list['dep_num'])
+    else:
+        dist_mat = pd.read_csv(rf'..\data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\distance_matrix_{DIRECTION}.csv',
+                               encoding='gbk')
+        speed_df = pd.read_csv(rf'..\data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\speed_list_{DIRECTION}.csv',
+                               encoding='gbk')
+        station_info = pd.read_csv(rf'..\data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\station_info.csv',
+                                   encoding='gbk')
+        dep_duration_list = pd.read_csv(rf'..\data\line_{TEST_LINE}\dep_duration_{DIRECTION}.csv', encoding='gbk')
+        dep_num_list = pd.read_csv(rf'..\data\line_{TEST_LINE}\dep_num_{DIRECTION}.csv', encoding='gbk')
+        station_info = station_info[station_info['direction'] == DIRECTION].reset_index(drop=True)
+        side_line_info = pd.read_csv(
+            rf'..\data\line_{TEST_LINE}\side_{way}_{frac}_{DIRECTION}\side_line_info_{DIRECTION}.csv', encoding='gbk')
+        # get station list
+        station_list = list(station_info['station'])
+        dist_list = list(dist_mat['dist'])
+        speed_list = list(speed_df['speed'])
+        loc_list = list(zip(list(station_info['lat']), list(station_info['lon'])))
+        dep_duration_list = list(dep_duration_list['dep_duration'])
+        dep_num_list = list(dep_num_list['dep_num'])
 
     return {
         'station_list': station_list,
         'dist_list': dist_list,
         'loc_list': loc_list,
         'speed_list': speed_list,
+        'dep_duration_list': dep_duration_list,
+        'dep_num_list': dep_num_list,
+        'side_line_info': side_line_info,
     }
+
+
+# def read_in_for_opt():
+#     # read files
+#     dist_mat = pd.read_csv(rf'..\data\line_{TEST_LINE}\distance_matrix_{DIRECTION}.csv', encoding='gbk')
+#     speed_df = pd.read_csv(rf'..\data\line_{TEST_LINE}\speed_list_{DIRECTION}.csv', encoding='gbk')
+#     station_info = pd.read_csv(rf'..\data\line_{TEST_LINE}\station_info.csv', encoding='gbk')
+#     station_info = station_info[station_info['direction'] == DIRECTION].reset_index(drop=True)
+#     # get station list
+#     station_list = list(station_info['station'])
+#     dist_list = list(dist_mat['dist'])
+#     speed_list = list(speed_df['speed'])
+#     loc_list = list(zip(list(station_info['lat']), list(station_info['lon'])))
+#
+#     return {
+#         'station_list': station_list,
+#         'dist_list': dist_list,
+#         'loc_list': loc_list,
+#         'speed_list': speed_list,
+#     }
 
 
 class Sim:
@@ -2156,6 +2204,7 @@ class Sim:
             'comb times(noon)': num_comb_noon,
             'comb times(late)': num_comb_late,
             'cab num': len(self.all_cabs),
+            'res_hour_dict': self.line.res_time_dict
         }
 
     def get_special_statistics(self, special_list=None):
@@ -2212,7 +2261,7 @@ class Sim:
 
 
 if __name__ == '__main__':
-    line_info = read_in(way='total', fractile=0.5)
+    line_info = read_in(way='total', fractile=None)
     start = time.time()
 
     # optimization for single line
@@ -2220,8 +2269,8 @@ if __name__ == '__main__':
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
     # plan 2
-    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
-    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 480, 480, 480, 480, 720, 720, 840, 840, 720, 720, 660, 660, 720, 720, 720, 720]
+    line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
+    line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 600, 600, 600, 600, 840, 840, 720, 720, 600, 600, 600, 600, 720, 720, 900, 900]
     # plan 3
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 840, 840, 900, 900, 840, 840, 840, 840, 840, 840, 840, 840, 840, 840, 720, 720, 600, 600]

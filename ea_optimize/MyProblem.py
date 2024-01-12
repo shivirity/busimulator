@@ -30,7 +30,7 @@ class MyProblem(ea.Problem):  # 继承Problem父类
         # 调用父类构造方法完成实例化
         ea.Problem.__init__(self, name, M, maxormins, Dim, varTypes, lb, ub, lbin, ubin)
 
-        self.data = read_in_for_opt()
+        self.data = read_in_for_opt(way='total', fractile=None)
 
         # 设置用多线程还是多进程
         self.PoolType = PoolType
@@ -76,10 +76,18 @@ def subAimFunc(args):
     var = Vars[i, :]
     dep_num_var = [0 for _ in range(6)] + [val for val in var[:8] for _ in range(2)] + [1, 1]
     dep_duration_var = [0 for _ in range(6)] + [val * 60 for val in var[8:] for _ in range(2)] + [var[-1] * 60, var[-1] * 60]
-    sim = Sim(**data, sim_mode='single', dep_duration_list=dep_duration_var, dep_num_list=dep_num_var)
+
+    multi_dec_rule = 'up_first'
+    data['dep_num_list'] = dep_num_var
+    data['dep_duration_list'] = dep_duration_var
+    sim = Sim(**data, sim_mode='multi_order', multi_dec_rule=multi_dec_rule, record_time=None)
+    sim.can_reorg = True
+    sim.print_log = False
+
     sim.run()
     obj = sim.get_statistics()['power consumption(condition, kWh)']
-    avg_t = sim.get_statistics()['avg_travel_t(on bus, min)']
-    travel_t = sim.get_statistics()['avg_travel_t(full, min)']
-    t_cond = -1 if (LB_AVG_T <= avg_t < UB_AVG_T and travel_t <= UB_TRAVEL_T) else 1
+    avg_t = sim.get_statistics()['avg_travel_t(full, min)']
+    # travel_t = sim.get_statistics()['avg_travel_t(full, min)']
+    # t_cond = -1 if (LB_AVG_T <= avg_t < UB_AVG_T and travel_t <= UB_TRAVEL_T) else 1
+    t_cond = -1 if LB_AVG_T <= avg_t < UB_AVG_T else 1
     return obj, t_cond

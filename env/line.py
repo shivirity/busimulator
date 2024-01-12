@@ -4,7 +4,8 @@ import random
 import numpy as np
 import pandas as pd
 
-from consts import DIS_FIX, PASSENGER_SPEED, INTERVAL, NUM_UB, NUM_LB
+from consts import DIS_FIX, PASSENGER_SPEED, INTERVAL, NUM_UB, NUM_LB, CAN_TURN_AT_PEAK_HOURS, \
+    EARLY_HIGH_START_T, EARLY_HIGH_END_T, LATE_HIGH_START_T, LATE_HIGH_END_T, DAY
 from env.passenger import get_distance
 
 random.seed(42)
@@ -37,8 +38,16 @@ class Line:
         # consts
         self.max_wait_t = 10 * 60  # 乘客站点最大等待时间（用于随机生成出发时间）
 
+        # residual customer arrival time dict
+        self.res_time_dict = {key: [] for key in range(0, 24)}
+
         # passenger pool
-        self.passenger_pool = self.get_passenger_info()
+        self.passenger_pool = self.get_passenger_info(day=DAY)
+
+        # deal with res_time_dict
+        for key, val in self.res_time_dict.items():
+            hour_len = len(set(self.res_time_dict[key]))
+            self.res_time_dict[key] = (hour_len, (hour_len/len(self.side_line) if self.side_line is not None else 0))
 
     def create_main_line(self):
         """
@@ -87,8 +96,17 @@ class Line:
                 for ind in tmp_df.index:
                     if num_lb <= tmp_df.shape[0] < num_ub:
                         assert pass_info.loc[ind, 'crowd_mark'] in [-1, 1]
-                        pass_info.loc[ind, 'crowd_mark'] = 1
-                        crow_mark_time_list.append(pass_info.loc[ind, 'start_time'])
+                        if not CAN_TURN_AT_PEAK_HOURS:  # cannot turn at peak hours
+                            if EARLY_HIGH_START_T <= up_time < EARLY_HIGH_END_T or \
+                                    LATE_HIGH_START_T <= up_time < LATE_HIGH_END_T:
+                                pass_info.loc[ind, 'crowd_mark'] = 0
+                            else:
+                                pass_info.loc[ind, 'crowd_mark'] = 1
+                                crow_mark_time_list.append(pass_info.loc[ind, 'start_time'])
+                        else:  # can turn at peak hours
+                            pass_info.loc[ind, 'crowd_mark'] = 1
+                            crow_mark_time_list.append(pass_info.loc[ind, 'start_time'])
+
                     else:
                         assert pass_info.loc[ind, 'crowd_mark'] in [-1, 0]
                         pass_info.loc[ind, 'crowd_mark'] = 0
@@ -253,14 +271,14 @@ class Line:
         new_up_t = up_t - round((ori_arr_dist - arr_dist) / PASSENGER_SPEED)
         return new_up_t
 
-    def get_passenger_info(self):
+    def get_passenger_info(self, day: int):
         """
         加载所有乘客信息, 包括起始站点和起始时间, 到达站点后 reveal
         返回包含乘客出发点、时间、原出发站点、原结束站点、结束点的 dataframe
 
         :return: pd.Dataframe
         """
-        pass_info = pd.read_csv(r'D:\mofangbus\busimulator\data\line_810\chain_data.csv', encoding='utf-8')
+        pass_info = pd.read_csv(rf'D:\mofangbus\busimulator\data\line_810\chain_data_{day}.csv', encoding='utf-8')
         pass_info = pass_info[pass_info['direction'] == self.direc].reset_index(drop=True)
         pass_info = self.get_chain_data(pass_info=pass_info, interval=INTERVAL, num_ub=NUM_UB, num_lb=NUM_LB)
         s_pos_l, s_t_l, s_loc_l, e_loc_l, e_pos_l, side_flag_l = [], [], [], [], [], []
@@ -296,7 +314,12 @@ class Line:
                     new_up_t = self.get_new_up_t(arr_loc=up_loc, sta_lat=ori_lat, sta_lon=ori_lon, up_t=up_t)
                     if new_up_t is not None:
                         up_t = new_up_t
+
+                    if not isinstance(up_loc, (int, np.integer)):
+                        self.res_time_dict[int(up_t/3600)].append(up_loc)
+
                     side_flag = True
+
                 else:  # 主线
                     if up_station in self.station_list and down_station in self.station_list:
                         up_loc, down_loc = self.station_list.index(up_station) + 1, self.station_list.index(down_station) + 1

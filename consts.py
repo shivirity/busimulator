@@ -87,6 +87,12 @@ ONLY_MAIN_LINE_STOP_THRESHOLD = 0  # 主线站点停站的等待车辆数阈值
 # crowd mark consts
 INTERVAL = 10 * 60
 
+# different days
+DAY = 15
+
 # (11, 14): 4%, (10, 14): 10%, (6, 14): 28%, (4, 14): 51%
-NUM_UB = 14  # 14
-NUM_LB = 10  # 11
+# can turn at peak: 10(12%), 8(20%), 7(28%)
+# cannot turn at peak: 9(10%), 6(21%), 5(27%)
+NUM_UB = 100  # 100
+NUM_LB = 5
+CAN_TURN_AT_PEAK_HOURS = True  # 是否在高峰期可以转向支线
