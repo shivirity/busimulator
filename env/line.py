@@ -79,11 +79,12 @@ class Line:
         :param num_threshold: 间隔内上车人数下界
         :return:
         """
+        MINUS_DATE = 20191000000000 + DAY * 1000000
         # data preprocessing
         pass_info['start_time'] = pass_info.apply(
-            (lambda x: int((x['up_time'] - 20191015000000) / 10000) * 3600 +
-                       int(((x['up_time'] - 20191015000000) % 10000) / 100) * 60 +
-                       (x['up_time'] - 20191015000000) % 100 - self.get_random_t()), axis=1)
+            (lambda x: int((x['up_time'] - MINUS_DATE) / 10000) * 3600 +
+                       int(((x['up_time'] - MINUS_DATE) % 10000) / 100) * 60 +
+                       (x['up_time'] - MINUS_DATE) % 100 - self.get_random_t()), axis=1)
         # get crowd mark
         crow_mark_time_list = []
         pass_info['crowd_mark'] = -1
