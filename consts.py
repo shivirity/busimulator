@@ -88,7 +88,7 @@ ONLY_MAIN_LINE_STOP_THRESHOLD = 0  # 主线站点停站的等待车辆数阈值
 INTERVAL = 10 * 60
 
 # different days
-DAY = 19
+DAY = 2
 
 # (11, 14): 4%, (10, 14): 10%, (6, 14): 28%, (4, 14): 51%
 
@@ -103,5 +103,5 @@ DAY = 19
 # cannot turn at peak: 8(10%), 6(20%), 5(26%)
 
 NUM_UB = 100  # 100
-NUM_LB = 10
+NUM_LB = 8
 CAN_TURN_AT_PEAK_HOURS = False  # 是否在高峰期可以转向支线

@@ -2204,6 +2204,7 @@ class Sim:
             'comb times(noon)': num_comb_noon,
             'comb times(late)': num_comb_late,
             'cab num': len(self.all_cabs),
+            'num_of_pass_save_dist': self.line.num_side_lines,
             'res_hour_dict': self.line.res_time_dict
         }
 

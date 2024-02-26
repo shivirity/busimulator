@@ -29,6 +29,9 @@ class Line:
         # side_line (dict)
         self.side_line = None
 
+        # number of passengers waiting at side lines
+        self.num_side_lines = 0
+
         # 生成主线
         self.create_main_line()
         if self.mode in ['multi', 'multi_order']:
@@ -255,6 +258,9 @@ class Line:
                 down_loc = min_ind[0]
             else:
                 down_loc = min_ind[1]
+
+        if (not isinstance(up_loc, (int, np.integer))) or (not isinstance(down_loc, (int, np.integer))):
+            self.num_side_lines += 1
 
         return up_loc, down_loc
 
