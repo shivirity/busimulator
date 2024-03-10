@@ -3,18 +3,6 @@ import numpy as np
 from consts import PASSENGER_SPEED
 
 
-# def get_distance(lat1, lon1, lat2, lon2):
-#     # in meter
-#     EARTH_RADIUS = 6378.137
-#     radlat1, radlon1 = lat1 * math.pi / 180.0, lon1 * math.pi / 180.0
-#     radlat2, radlon2 = lat2 * math.pi / 180.0, lon2 * math.pi / 180.0
-#     a, b = radlat1 - radlat2, radlon1 - radlon2
-#     s = 2 * math.asin(
-#         math.sqrt(math.pow(math.sin(a / 2), 2) + math.cos(radlat1) * math.cos(radlat2) * math.pow(math.sin(b / 2), 2)))
-#     s = s * EARTH_RADIUS
-#     s *= 1000
-#     return s
-
 def get_distance(lat1, lon1, lat2, lon2):
     # in meter
     lat_diff, lon_diff = 0.00584909, 0.00898311  # [lat +- 500m, lon +- 1000m]]

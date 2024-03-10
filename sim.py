@@ -2265,16 +2265,13 @@ if __name__ == '__main__':
     line_info = read_in(way='total', fractile=None)
     start = time.time()
 
-    # optimization for single line
+    # optimization for departure decision
     # plan 1
     # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1]
     # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 600, 600, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 480, 900, 900]
     # plan 2
-    line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
-    line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 600, 600, 600, 600, 840, 840, 720, 720, 600, 600, 600, 600, 720, 720, 900, 900]
-    # plan 3
-    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1]
-    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 840, 840, 900, 900, 840, 840, 840, 840, 840, 840, 840, 840, 840, 840, 720, 720, 600, 600]
+    # line_info['dep_num_list'] = [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1]
+    # line_info['dep_duration_list'] = [0, 0, 0, 0, 0, 0, 720, 720, 600, 600, 600, 600, 840, 840, 720, 720, 600, 600, 600, 600, 720, 720, 900, 900]
 
     multi_dec_rule = 'up_first'
     sim = Sim(**line_info, sim_mode='multi_order', multi_dec_rule=multi_dec_rule, record_time=None)
@@ -2284,10 +2281,10 @@ if __name__ == '__main__':
     # sim.get_record = (9 * 3600, 9.2 * 3600)
     sim.run()
     sim_result = sim.get_statistics()
-    special_list = None
-    # special_list = [519, 531, 539, 540, 545, 549, 556, 558, 567, 581, 583, 743, 749, 753, 756, 758, 760, 762, 764, 772, 774, 776, 777, 780, 1128, 1130, 1136, 1147, 1156, 1159, 1160, 1161, 1162, 1163, 1164, 1165, 1172, 1422, 1427, 1431, 1439, 1441, 1443, 1450, 1452, 1454, 1455, 1459, 1462, 1924, 1926, 1937, 1938, 1940, 1943, 1955, 1959, 1960, 1970, 1972, 2007, 2026, 2035, 2042, 2046, 2051, 2052, 2054, 2057, 2059, 2066, 2309, 2318, 2320, 2325, 2329, 2331, 2344, 2349, 2357, 2359, 2371, 2599, 2604, 2609, 2620, 2634, 2635, 2641, 2648, 2653, 2667, 2688, 2817, 2830, 2833, 2839, 2843, 2849, 2850, 2856, 2858, 2864, 2874, 2978, 2983, 2990, 2995, 2998, 3009, 3010, 3011, 3017, 3018, 3041, 3382, 3387, 3394, 3407, 3415, 3416, 3419, 3421, 3423, 3424, 3426, 3435]
 
-    sim_special_passenger = sim.get_special_statistics(special_list=special_list)
+    # special_list = None
+    # sim_special_passenger = sim.get_special_statistics(special_list=special_list)
+
     print('runtime: {:.2f}s'.format((time.time() - start)))
     if sim.sim_mode in ['baseline', 'single']:
         print(f'optimal travel time on bus: {sim.get_passenger_optimal()} min')

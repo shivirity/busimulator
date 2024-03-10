@@ -124,6 +124,19 @@ class Line:
 
     def get_side_line_up_and_down_loc(self, up_lat: int, up_lon: int, down_lat: int, down_lon: int,
                                       ori_lat: int, ori_lon: int, fin_lat: int, fin_lon: int):
+        """
+        生成支线站点乘客上下客位置
+
+        :param up_lat: 上车纬度
+        :param up_lon: 上车经度
+        :param down_lat: 下车纬度
+        :param down_lon: 下车经度
+        :param ori_lat: 出发纬度
+        :param ori_lon: 出发经度
+        :param fin_lat: 到达纬度
+        :param fin_lon: 到达经度
+        :return: 上车位置, 下车位置
+        """
 
         # start location
         if (up_lat, up_lon) in self.loc_list:
