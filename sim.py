@@ -1778,7 +1778,7 @@ class Sim:
                                         if self.all_buses[pot_bus].pass_num == 0 or \
                                                 next_n_down_num / self.all_buses[pot_bus].pass_num >= RATE_REAR_PASS_MULTI:
                                             self.all_buses[pot_bus].comb_dec = [cur_bus.bus_id, 0]
-                                            cur_bus.comb_dec = [pot_bus, 1]
+                                            cur_bus.comb_dec = [pot_bus, 1]  # [对象车编号, 0前1后]
                                             break
                                         else:
                                             pass
